@@ -3,7 +3,6 @@ from codecarbon import EmissionsTracker
 import mysql.connector
 from mysql.connector import Error
 import os
-import json
 import time
 import dotenv
 import logging
@@ -72,6 +71,21 @@ class GenerateAlternatives:
         total_emissions = emissions_datacenter + emisions_network + emissions_device
         return total_emissions
     
+    def fetch_matches(self):
+        """This function is designed to return the row in which a user's current website was found. If the website was not found yet, 
+        it will call call the ai_response which will make suggestions and store it in the database
+
+        Retuns:
+            list: row the current website was found
+        """
+        query = f"""SELECT * FROM websites WHERE url = %s OR web_suggested_1 = %s OR web_suggested_2 = %s OR web_suggested_3 = %s"""
+        self.cursor.execute(query, (self.url, self.url, self.url, self.url))    
+        result = self.cursor.fetchone()
+
+        if result:
+            return result
+        else:
+            self.fetch_ai_response()
     def store_website(self, suggestions, date):
         """Writes the website data into the SQL database for the respective user. This data will be used to quick-fetch suggestions for the user's current website
         --> reduces digital footprint/carbon emissions
