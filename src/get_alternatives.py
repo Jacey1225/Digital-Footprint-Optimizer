@@ -39,9 +39,7 @@ class GenerateAlternatives:
             self.cursor = self.connection.cursor()
         except Error as e:
             logger.info("Error while connecting to MySQL", e)
-        
-        self.cursor.execute(f"CREATE TABLE IF NOT EXISTS websites (id INT AUTO_INCREMENT PRIMARY KEY, url VARCHAR(255), data_transfer INT, web_suggested_1 VARCHAR(255), web_suggested_2 VARCHAR(255), web_suggested_3 VARCHAR(255), date VARCHAR(255))")
-        
+                
     def calculate_total_emissions(self) -> float:
         """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estiamtes of intensities on different segments and summing them out
         Args:
@@ -78,7 +76,7 @@ class GenerateAlternatives:
         Retuns:
             list: row the current website was found
         """
-        query = f"""SELECT * FROM websites WHERE url = %s OR web_suggested_1 = %s OR web_suggested_2 = %s OR web_suggested_3 = %s"""
+        query = f"SELECT * FROM {self.user_id} WHERE url = %s OR web_suggested_1 = %s OR web_suggested_2 = %s OR web_suggested_3 = %s"
         self.cursor.execute(query, (self.url, self.url, self.url, self.url))    
         result = self.cursor.fetchone()
 
@@ -96,7 +94,7 @@ class GenerateAlternatives:
             date (string): date the website was written to the database --> used to determine how old the data is
         """
         data_transfer = self.calculate_total_emissions()
-        sql = "INSERT INTO websites (id, url, data_transfer, web_suggested_1, web_suggested_2, web_suggested_3, date) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        sql = f"INSERT INTO {self.user_id} (user, url, data_transfer, web_suggested_1, web_suggested_2, web_suggested_3, date) VALUES (%s, %s, %s, %s, %s, %s, %s)"
         val = (self.user_id, self.url, data_transfer, suggestions[0], suggestions[1], suggestions[2], date)
         self.cursor.execute(sql, val)
         self.connection.commit()
