@@ -1,5 +1,4 @@
 import os
-from codecarbon import EmissionsTracker
 import mysql.connector
 from mysql.connector import Error
 import logging
@@ -7,7 +6,6 @@ import random
 import string
 
 logger = logging.getLogger(__name__)
-tracker = EmissionsTracker()
 
 CONFIG = {
     "host": os.environ.get('MYSQL_HOST', 'localhost'),
