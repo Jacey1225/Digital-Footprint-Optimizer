@@ -130,14 +130,14 @@ class GenerateAlternatives:
 
     def filter_suggestions(self, suggestions):
         """takes a list of AI generated urls that were suggested and filters them out based on their 
-        overall carbon footprint. The function will need to pass through a JS function that will need to calcualte 
-        total data transfer of the current suggestion so that we can accurately calcualte. 
+        overall carbon footprint. The function will need to pass through a JS function that will need to calculate the 
+        total data transfer of the current suggestion so that we can accurately calculate. 
 
         Args:
             suggestions (list): list of suggested website alternatives generated from AI API
 
         Returns:
-            list: Pruned lilst of suggestions based on the best results
+            list: Pruned list of suggestions based on the best results
         """
         scores = []
         dt_api = "htttp://localhost:3000/FUNCTION"
@@ -160,7 +160,7 @@ class GenerateAlternatives:
     
 
     def fetch_ai_response(self):
-        """This function is designed to generate a list of suggested websites taht are similar to the user's current website ONLY IF they have not bee nfound in the current local database and passes the given conditions for search.
+        """This function is designed to generate a list of suggested websites that are similar to the user's current website ONLY IF they have not bee nfound in the current local database and passes the given conditions for search.
         After the suggested have been generated, they will be passed to the frontend service and written to the database.
 
         Returns: 
