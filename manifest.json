@@ -1,0 +1,11 @@
+{
+    "manifest_version": 3,
+    "name": "My Google Extension",
+    "version": "1.0",
+    "description": "A simple Google Chrome extension!",
+    "action": {
+      "default_popup": "src/popup.html"
+    },
+    "permissions": []
+  }
+  
