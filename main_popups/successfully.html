@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="successfully.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+</head>
+<body>
+    <button class="show_success">Show Success</button>
+    <div class="successful_login hide">
+        <div class="header">
+            <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+            <p id="title">CB</p>
+            <p id="login_text">Sign Up</p>
+            <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>
+        </div>
+        <div class="content">
+            <span class="iconify header_icon check" data-icon="material-symbols:check-box" data-inline="false"></span>
+            <div class="right_content">
+                <p id="main">You have successfully logged in!</p>
+                <p id="secondary">You can exit this window and the application will begin tracking automatically.</p>    
+            </div>
+        </div>    
+    </div>
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+    <script>
+        $('.show_success').click(function(){
+            $('.successful_login').removeClass("hide");
+            $('.successful_login').addClass("show");
+        });
+        $('.cross').click(function(){
+            $('.successful_login').addClass("hide");
+            $('.successful_login').removeClass("show");
+        });
+    </script>
+</body>
+</html>
