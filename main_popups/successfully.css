@@ -1,0 +1,94 @@
+html {
+    font-size: 62.5%;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+}
+
+.successful_login {
+    position: fixed;
+    top: 2rem;
+    right: -100%;
+    transition: right 0.8s ease;
+    width: 65vh;
+    height: 25vh;
+    background: linear-gradient(to right, #222D25, black);
+    border-radius: 1em;
+    font-size: 1em;
+    font-family: 'Poppins', sans-serif;
+    z-index: 2000;
+}
+
+.successful_login.show {
+    right: 2rem;
+    animation: show_slide 0.8s ease forwards;
+}
+
+@keyframes show_slide {
+    0% {
+        transform: translateX(100%);
+    }
+    40%{
+        transform: translateX(-10%);
+    }
+    80% {
+        transform: translateX(2%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.successful_login.hide {
+    right: -100%;
+}
+
+.header {
+    color: white;
+    display: flex;
+    flex-direction: row;
+    padding-top: 0.5rem;
+    .header_icon {
+        font-size: 4em;
+    }
+    .leaf {
+        padding-left: 2rem;
+    }
+    .cross {
+        padding-right: 2rem;
+        font-size: 5em;
+        margin-top: -0.5rem;
+    }
+    .cross:hover {
+        cursor: pointer;
+    }
+    .dots {
+        font-size: 5em;
+        margin-top: -0.5rem;
+    }
+}
+
+.check {
+    font-size: 9em;
+    padding-left: 2rem;
+}
+
+.content {
+    color: white;
+}
+
+.right_content {
+    width: 50%;
+    float: right;
+    text-align: center;
+}
+
+#main {
+    font-size: 2em;
+}
+
+#secondary {
+    font-size: 1.2em;
+}
