@@ -1,0 +1,188 @@
+html {
+    font-size: 62.5%;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+}
+
+.show_login {
+    width: 300px;
+    height: 100px;
+    margin-top: 500px;
+}
+.login_box {
+    position: fixed;
+    top: 2rem;
+    right: -100%;
+    transition: right 0.8s ease;
+    width: 70vh;
+    height: 41vh;
+    background: linear-gradient(to right, #222D25, black);
+    border-radius: 1em;
+    font-size: 1em;
+    font-family: 'Poppins', sans-serif;
+    z-index: 2000;
+}
+
+.login_box.show {
+    right: 2rem;
+    animation: show_slide 0.8s ease forwards;
+}
+
+@keyframes show_slide {
+    0% {
+        transform: translateX(100%);
+    }
+    40%{
+        transform: translateX(-10%);
+    }
+    80% {
+        transform: translateX(2%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.login_box.hide {
+    right: -100%;
+}
+
+
+.header,
+.left_content,
+.right_content {
+    color: white;
+}
+
+.header {
+    display: flex;
+    flex-direction: row;
+    padding-top: 0.5rem;
+    .header_icon {
+        font-size: 4em;
+    }
+    .leaf {
+        padding-left: 2rem;
+    }
+    .cross {
+        padding-right: 2rem;
+        font-size: 5em;
+        margin-top: -0.5rem;
+    }
+    .cross:hover {
+        cursor: pointer;
+    }
+    .dots {
+        font-size: 5em;
+        margin-top: -0.5rem;
+    }
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
+}
+
+.profile {
+    font-size: 15em;
+    padding-left: 1rem;
+}
+
+#content {
+    display: flex;
+    flex-direction: row;
+    font-size: 1.2em;
+    margin-top: -2rem;
+}
+
+.left_content {
+    width: 40%;
+    font-size: 0.9em;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    p {
+        margin-top: -0.5rem;
+        text-align: center;
+    }
+}
+
+#forgot_password {
+    width: 123%;
+}
+
+.link a {
+    color: white;
+}
+
+.link a:hover {
+    cursor: pointer;
+}
+
+.right_content {
+    display: flex;
+    flex-direction: column;
+}
+
+.input_group {
+    position: relative;
+    margin: 1.6rem 0;
+}
+
+.input_group label {
+    position: absolute;
+    transform: translateY(-50%);
+    top: 1.6rem;
+    left: 1rem;
+    font-size: 1.2em;
+    pointer-events: none;
+    color: #565656;
+    padding: 0 5px;
+    transition: .5s;
+}
+
+.input_group input {
+    width: 80%;
+    height: 170%;
+    color: #565656;
+    font-size: 1.2em;
+    padding: 0 15px;
+    border: 1.2px solid #565656;
+    background: transparent;
+    outline: none;
+    border-radius: 5px;
+}
+
+.input_group input:focus~label,
+.input_group input:valid~label {
+    top: 0;
+    background:  #0e1410;
+    font-size: 1em;
+}
+
+#login_text {
+    font-weight: bold;
+    font-size: 2em;
+    text-align: center;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+button {
+    font-weight: bold;
+    padding: 8px 0 8px 0;
+    width: 50%;
+    display: block;
+    margin: 0 auto;
+    margin-top: 7%;
+    border-radius: 5px;
+    border-style: none;
+}
+
+button:hover {
+    cursor: pointer;
+    background-color: grey;
+}
