@@ -12,7 +12,7 @@ mock_data = [1, 2, 2, 3, 100, 3, 2, 2, 1, 50, 2, 2, 80, 100, 80, 2, 2, 1]
 # Create an instance of DailyBehavior wißth mock data
 user_id = 1
 behavior_data = None
-z_threshold = 2  # Set a z-score threshold for spike detection
+z_threshold = 1.3  # Set a z-score threshold for spike detection
 daily_behavior = DailyBehavior(user_id, mock_data, behavior_data, z_threshold)
 
 # Run the average_spikes function
