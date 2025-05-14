@@ -44,25 +44,33 @@ mock_datasets = {
 # Test each dataset
 for scenario, mock_data in mock_datasets.items():
     print(f"\nRunning {scenario}...")
-    
+
     # Create an instance of DailyBehavior with the mock data
     user_id = "test_user"
-    passw = "test_password"
+    password = "test_password"
+    k = 3  # Number of clusters
     z_threshold = 1.3  # Set a z-score threshold for spike detection
-    daily_behavior = DailyBehavior(user_id, passw, mock_data, z_threshold=z_threshold)
+    daily_behavior = DailyBehavior(user_id, password, mock_data)
 
-    # Run the average_spikes function
+    # Step 1: Detect spikes using average_spikes
     daily_behavior.average_spikes()
 
-    # Print the detected spikes
-    print(f"Detected spikes for {scenario}: {daily_behavior.activity_spikes}")
+    # Step 2: Cluster the detected spikes using kmeans_spikes
+    clusters = daily_behavior.kmeans_spikes()
 
-    # Visualize the results
+    # Print the clustering results
+    print(f"Clusters for {scenario}:")
+    for cluster_id, points in clusters.items():
+        print(f"  Cluster {cluster_id}: {points}")
+
+    # Visualize the clustering results
     plt.figure(figsize=(10, 6))
-    plt.plot(mock_data, label="Mock Data", marker="o")
-    for spike in daily_behavior.activity_spikes:
-        plt.axvline(x=spike, color="red", linestyle="--", label=f"Spike at index {spike}")
-    plt.title(f"Spike Detection - {scenario}")
+    colors = ['red', 'blue', 'green', 'purple', 'orange']
+    for cluster_id, points in clusters.items():
+        cluster_values = [mock_data[point] for point in points]
+        plt.scatter(points, cluster_values, label=f"Cluster {cluster_id}", color=colors[cluster_id % len(colors)])
+    plt.plot(mock_data, label="Mock Data", color="black", linestyle="--", alpha=0.5)
+    plt.title(f"K-Means Clustering - {scenario}")
     plt.xlabel("Index")
     plt.ylabel("Activity Level")
     plt.legend()
