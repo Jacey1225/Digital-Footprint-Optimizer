@@ -38,47 +38,14 @@ CONFIG = {
 }
 
 class DailyBehavior:
-    def __init__(self, user_id, password, daily_hours, z_threshold=1.8, iterations=10, db_config=CONFIG, ):
+    def __init__(self, user_id, password, daily_hours, z_threshold=1.8, iterations=10, db_config=CONFIG):
         self.user_id = user_id
         self.daily_hours = daily_hours
         self.activity_spikes = []
         self.z_threshold = z_threshold
         self.db_config = db_config
         self.iterations = iterations
-        
-        day = datetime.now()    
-        self.week_day = day.strftime("%A")
-
-        # Validate and cast db_config values
-        self.db_config = {
-            "host": str(db_config.get("host", "localhost")),
-            "user": str(db_config.get("user", "root")),
-            "password": str(db_config.get("password", "")),
-            "database": str(db_config.get("database", "")),
-            "port": int(db_config.get("port", 3306))  # Ensure port is an integer
-        }
-
-        # Debug: Print the db_config dictionary
-        logging.info("DB Config:", self.db_config)
-
-        try:
-            self.connection = mysql.connector.connect(**self.db_config)
-        except Error as e:
-            logging.error(f"Error connecting to MySQL: {e}")
-            raise
-        self.cursor = self.connection.cursor()
-        table_query = f"""
-        CREATE TABLE IF NOT EXISTS `{self.user_id}` (
-            userid VARCHAR(255) PRIMARY KEY, 
-            pass VARCHAR(255), 
-            monday VARCHAR(255), 
-            tuesday VARCHAR(255), 
-            wednesday VARCHAR(255), 
-            thursday VARCHAR(255), 
-            friday VARCHAR(255), 
-            saturday VARCHAR(255), 
-            sunday VARCHAR(255));"""
-        self.cursor.execute(table_query)
+        self.current_pattern = []
     
     def average_spikes(self):
         """Process self.dailyhours(A list of 24 elements eachrepresenting the percentage of activity from a user per hour)
@@ -214,26 +181,49 @@ class DailyBehavior:
             centroids = new_centroids
             clusters = new_clusters
         return clusters
-
+    
+    def set_current_pattern(self, clusters):
+        for cluster_id, points in clusters.items():
+            activity_range = [min(points), max(points)]
+            self.current_pattern.append(activity_range)
+        
 ############################################################################
 
+
 class TrackOverallBehavior(DailyBehavior):
-    def __init__(self, user_id, password, daily_hours):
-        super().__init__(user_id, password, daily_hours)
+    def __init__(self, user_id, password, db_config=CONFIG):
         self.user_id = user_id
         self.password = password
-        self.daily_hours = daily_hours
         self.data_count = 0
+        self.sb_config = db_config
+
+        day = datetime.now()    
+        self.week_day = day.strftime("%A")
+        try:
+            self.connection = mysql.connector.connect(**self.db_config)
+        except Error as e:
+            logging.error(f"Error connecting to MySQL: {e}")
+            raise
+        self.cursor = self.connection.cursor()
+        table_query = f"""
+        CREATE TABLE IF NOT EXISTS `{self.user_id}` (
+            currentPattern VARCHAR(255), 
+            monday VARCHAR(255), 
+            tuesday VARCHAR(255), 
+            wednesday VARCHAR(255), 
+            thursday VARCHAR(255), 
+            friday VARCHAR(255), 
+            saturday VARCHAR(255), 
+            sunday VARCHAR(255));"""
+        self.cursor.execute(table_query)
 
     def add_behavior(self, node):
-        day = node.week_day.upper()
-        item_query = f"""INSERT INTO {self.user_id} (user_id, PASSWORD, {day})
+        #node is the DailyBehavior object above
+        day = self.week_day.lower()
+        item_query = f"""INSERT INTO {self.user_id} (currentPattern, {day})
         VALUES (%s, %s, %s);
         """
         values = (self.user_id, self.password, day, node.current_pattern)
         self.cursor.execute()
         
         self.data_count += 1
-
-
-
