@@ -12,12 +12,15 @@ throughout each sequence which will tell us the activity level of the user
 from hours a day to hours per each day of the week. 
 """
 import os
+import numpy as np
 import logging
 import json
 from datetime import datetime
 import random
 import mysql.connector
 from mysql.connector import Error
+import math
+from sklearn.cluster import KMeans
 
 # Configure logging
 logging.basicConfig(
@@ -30,38 +33,62 @@ CONFIG = {
     "host": os.environ.get('MYSQL_HOST', 'localhost'),
     "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
     "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'userInfo')
+    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
+    "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
 }
 
 class DailyBehavior:
-    def __init__(self, user_id, password, daily_hours, db_config=CONFIG, z_threshold=1.3, k=3):
+    def __init__(self, user_id, password, daily_hours, z_threshold=1.8, iterations=10, db_config=CONFIG, ):
         self.user_id = user_id
         self.daily_hours = daily_hours
         self.activity_spikes = []
         self.z_threshold = z_threshold
-        self.k = k
+        self.db_config = db_config
+        self.iterations = iterations
         
         day = datetime.now()    
         self.week_day = day.strftime("%A")
 
-        self.db_config = db_config
-        self.connection = mysql.connector.connect(**self.db_config)
+        # Validate and cast db_config values
+        self.db_config = {
+            "host": str(db_config.get("host", "localhost")),
+            "user": str(db_config.get("user", "root")),
+            "password": str(db_config.get("password", "")),
+            "database": str(db_config.get("database", "")),
+            "port": int(db_config.get("port", 3306))  # Ensure port is an integer
+        }
+
+        # Debug: Print the db_config dictionary
+        logging.info("DB Config:", self.db_config)
+
+        try:
+            self.connection = mysql.connector.connect(**self.db_config)
+        except Error as e:
+            logging.error(f"Error connecting to MySQL: {e}")
+            raise
         self.cursor = self.connection.cursor()
         table_query = f"""
-        CREATE TABLE IF NOT EXISTS {self.user_id} (
-            user_id VARCHAR(255) PRIMARY KEY, 
-            PASSWORD VARCHAR(255), 
-            MONDAY VARCHAR(255), 
-            TUESDAY VARCHAR(255), 
-            WEDNESDAY VARCHAR(255), 
-            THURSDAY VARCHAR(255), 
-            FRIDAY VARCHAR(255), 
-            SATURDAY VARCHAR(255), 
-            SUNDAY VARCHAR(255));"""
+        CREATE TABLE IF NOT EXISTS `{self.user_id}` (
+            userid VARCHAR(255) PRIMARY KEY, 
+            pass VARCHAR(255), 
+            monday VARCHAR(255), 
+            tuesday VARCHAR(255), 
+            wednesday VARCHAR(255), 
+            thursday VARCHAR(255), 
+            friday VARCHAR(255), 
+            saturday VARCHAR(255), 
+            sunday VARCHAR(255));"""
         self.cursor.execute(table_query)
     
     def average_spikes(self):
+        """Process self.dailyhours(A list of 24 elements eachrepresenting the percentage of activity from a user per hour)
+        into a list of the indices where the activity spikes the highest throughout the day. This is done by
+        incrementally updating the mean and standard deviation, then calcualting it's z-score concerning the z-threshold which
+        is dynamically updated in respect to the growth of the meand and standard deviation.
+        """
         mean = 0
+        previous_mean = 0
+        previous_std = 0
         window_size = 0
         M2 = 0
 
@@ -75,64 +102,121 @@ class DailyBehavior:
 
             std = variance ** 0.5
 
-            if std == 0:
-                logging.warning(f"Index {i}: Skipping due to zero standard deviation.")
+            if std < 0.05:  # Skip if standard deviation is too low
+                logging.warning(f"Index {i}: Skipping due to low standard deviation.")
                 continue
 
-            z_score = abs(new_value - mean) / std
-            logging.info(
-                f"Index {i}: Value={new_value}, Mean={mean:.2f}, Std={std:.2f}, Z-Score={z_score:.2f} -> threshold={self.z_threshold:.2f}"
-            )
+            mean_rate_of_change = abs(mean - previous_mean) 
+            std_rate_of_change = abs(std - previous_std)
+            self.z_threshold = 1.8 * (mean_rate_of_change + std_rate_of_change) / 2
+            logging.info(f"New Z-Threshold: {self.z_threshold:.2f}")
 
+            z_score = (new_value - mean) / std
+            logging.info(f"value: {self.daily_hours[i]}, Z-score: {z_score:.2f}, Mean: {mean:.2f}, Std: {std:.2f}")
+            
             if z_score > self.z_threshold:
-                self.activity_spikes.append(new_value)
-                logging.info(f"Index {i}: Spike detected with Z-Score={z_score:.2f} on index {i}.")
+                self.activity_spikes.append(i)
+                logging.info(f"Index {i}: Spike detected with Z-Score={z_score:.2f} value={self.daily_hours[i]:.2f}.")
         
+            previous_mean = mean
+            previous_std = std
         logging.info(f"User {self.user_id} detected {len(self.activity_spikes)} spikes.")
+        logging.info(f"Spikes: {self.activity_spikes}")
     
-    def kmeans_clustering(self, current_pattern=None, new_data=None, iterations=10):
-        """cluster spike trends together using k-means clustering
-        1. Pull data from SQL database
-        2. Set the number of clusters needed to group the data together
-        3. Take a random number of values from the data
-        4. Iterate through each point of data and calculate the distance to each randomized point
-        5. Assign each point to the closest K point
-        6. Once the points are assigned, calculate the mean of each cluster and repeat the process
-        6. Continue calculating these distances until the points are stable
-        7. Return each cluster from its min and max points
+############################################################################  
+    def get_k(self):
+        """
+        Determine the optimal number of clusters (k) using the elbow method.
+        Returns:
+            int: Optimal number of clusters (k), with a minimum possible value of 1.
+        """
+        if len(self.activity_spikes) < 2:
+            return 1  # If there are less than 2 spikes, only 1 cluster is possible.
+
+        distortions = []
+        max_k = min(10, len(self.activity_spikes))  # Limit k to a maximum of 10 or the number of spikes.
+        data = np.array(self.activity_spikes).reshape(-1, 1)
+
+        for k in range(1, max_k + 1):
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans.fit(data)
+            distortions.append(kmeans.inertia_)
+
+        # Calculate the "elbow" point
+        deltas = np.diff(distortions)
+        second_deltas = np.diff(deltas)
+        elbow_point = np.argmax(second_deltas) + 2  # +2 because second_deltas is offset by 2 from k
+
+        optimal_k = max(1, min(elbow_point, max_k))  # Ensure k is at least 1
+        logging.info(f"Optimal k determined by elbow method: {optimal_k}")
+        return optimal_k
+
+    def distances(self, data, target, centroids):
+        """Calculate the lowest distance between the current index, and each centroid
+        Args:
+            data (list): list of activity spikes
+            target (int): current index of the activity spike
+            centroids (list): list of randomly picked indexes
+
+        Returns:
+            int: index of the centroid that is closest to the current index
+        """
+        logging.info(f"Data: {data}, Target: {target}, Centroids: {centroids}")
+        distances = [abs(target - point) for point in centroids]
+
+        logging.info(f"Smallest distance: {distances.index(min(distances))}")
+        return distances.index(min(distances))
+    
+    def update_centroids(self, cluster_results, data):
+        """Update the centroid list by taking the mean of each currently know cluster as long as the data exists.
 
         Args:
-            data (_type_): _description_
+            cluster_results (dict): hashmap of the clusters and their points
+            data (list): list of activity spikes
+
+        Returns:
+            list: list of updated centroids
         """
-        if not day_pattern_query:
-            day_pattern_query = f"""SELECT {self.week_day} FROM {self.user_id} ORDER BY {self.week_day} DESC LIMIT 1;"""
+        updated_points = []
+
+        for rand_pt, points in cluster_results.items():
+            if points:
+                updated_points.append(sum(points) // len(points))
+            else:
+                updated_points.append(random.choice(data))        
+        return updated_points    
+    
+    def kmeans_spikes(self):
+        """Using K-Means clustering, cluster the activity spikes together for the best possible time windows to monitor the user
+
+        Returns:
+            dict: Hashmap of clusters for the best possible time windows to monitor the user
+        """
+        data = self.activity_spikes
+        if len(data) < 2:
+            return {0: data}
+        k = self.get_k()
         
-        self.cursor.execute(day_pattern_query)
-        current_pattern = self.cursor.fetchone()
-        data = new_data + current_pattern
+        centroids = random.sample(data, k)
+        centroids = [int(c) - 1 for c in centroids]
+        logging.info(f"Initial centroids: {centroids}")
 
-        random_points = random.sample(data, self.k)
-        clusters = {random_point: [] for random_point in random_points}
-        for i in range(iterations):
-            new_clusters = {random_point: [] for random_point in random_points}
+        clusters = {i: [] for i in range(len(centroids))}
+        for i in range(self.iterations):
+            new_clusters = {i: [] for i in range(len(centroids))}
             for j in range(len(data)):
-                if j not in random_points:
-                    distances = [abs(data[j] - data[point]) for point in random_points]
-                    closest_point = random_points[distances.index(min(distances))]
-                    new_clusters[closest_point].append(data[j])
+                index = self.distances(data, data[j], centroids)
+                new_clusters[index].append(data[j])
 
-            updated_points = []
-            for rand_pt, points in clusters.items():
-                if points:
-                    updated_points.append(sum(points) / len(points))
-                else:
-                    updated_points.append(random.choice(data))
-
-            if updated_points == random_points:
+            new_centroids = self.update_centroids(new_clusters, data)
+            if new_centroids == centroids:
                 break
-            random_points = updated_points
+            centroids = new_centroids
             clusters = new_clusters
         return clusters
+
+############################################################################
+
 class TrackOverallBehavior(DailyBehavior):
     def __init__(self, user_id, password, daily_hours):
         super().__init__(user_id, password, daily_hours)
