@@ -234,6 +234,16 @@ class TrackOverallBehavior(DailyBehavior):
 # K-MEANS CLUSTERING FOR PAST PATTERNS AND CURRENT DAY #
 ########################################################
     def get_k(self, pattern_data):
+        """Using KMeans inertia calculations, we can calculate the most potimal number of clusters for the given 
+        activity spikes
+
+        Args:
+            pattern_data (2D Array): a 2-Dimensional array of the activty spikes where each spike is represented as a range
+            from the earliest known value to the latest known value
+
+        Returns:
+            int: optimal value for K 
+        """
         if len(pattern_data) < 2:
             return 1
         
@@ -255,6 +265,19 @@ class TrackOverallBehavior(DailyBehavior):
         return optimal_k
     
     def distances(self, target, centroids):
+        """calculates the distance for each point in the range according to each centroid
+        1. calculates the distance between the centroid and the target's first point
+        2. calculates the distance between the centroid and the target's second point
+        3. add the two distances together
+        4. return the index of the centroid with the lowest distance
+
+        Args:
+            target (list): tuple of the current index
+            centroids (list): 2D aray of tuple centroids
+
+        Returns:
+            int: index within the clusters hashmap of thec entroid with the lowest distance
+        """
         distances = []
         for point in centroids:
             distance1 = abs(target[0] - point[0])
@@ -265,6 +288,17 @@ class TrackOverallBehavior(DailyBehavior):
         return distances.index(min(distances))
     
     def update_centroids(self, cluster_results, pattern_data):
+        """In order to maximize the accuracy of our clusters, we mean out each cluster's points
+        as long as they exist, adn update the cluster's centroids respectively, repeating the process from the beginning
+        If, however, the clusters are empty, we randomly select a centroid from the original data to be in-place. 
+
+        Args:
+            cluster_results (dict): hashmap of the currently known cluster items
+            pattern_data (list): 2D array of the activity spikes pulled from the database
+
+        Returns:
+            list: return the new centroids 
+        """
         updated_points = []
         for rand_pt, points in cluster_results.items():
             if points:
@@ -275,6 +309,16 @@ class TrackOverallBehavior(DailyBehavior):
         return updated_points
     
     def kmeans_pattern(self, kmean_data, iterations=10):
+        """Using K-Means clustering, cluster the current pattern, to the last known pattern together 
+        for the best adjustment of the two patterns. 
+
+        Args:
+            kmean_data (list): 2D array of the two patterns joined together
+            iterations (int, optional): _description_. Defaults to 10.
+
+        Returns:
+            dict: a hashmap of the clusterse for the best possible adjustment of the two patterns
+        """
         if len(kmean_data) < 2:
             return {0: kmean_data}
         
@@ -298,6 +342,14 @@ class TrackOverallBehavior(DailyBehavior):
         return clusters
         
     def set_new_pattern(self, clusters):
+        """average out the cluster results to make a new pattern for the user 
+
+        Args:
+            clusters (dict): cluster results from the kmeans pattern function
+
+        Returns:
+            list: adjusted pattern list as instruction for the frontend monitoring service
+        """
         ranges = []
         for cluster_id, points in clusters.items():
             average_start = sum(p[0] for p in points) // len(points)
@@ -307,6 +359,17 @@ class TrackOverallBehavior(DailyBehavior):
         return ranges
     
     def evaluate_similarity(self, daily_pattern, current_pattern, tolerance=2.5):
+        """ignore first coming outliers to the data, if the new data is recurring however, update the 
+        pattern accordingly, otherwise, if they are similar, return True to continue through the process
+
+        Args:
+            daily_pattern (list): pattern do be evaluated -> adjusting the current pattern
+            current_pattern (list): last known pattern that is being adjusted
+            tolerance (float, optional): threshold for which values can be similar to each other. Defaults to 2.5.
+
+        Returns:
+            bool: True if the two patterns are similar, False otherwise
+        """
         for pattern1, pattern2 in zip(daily_pattern, current_pattern):
             diff1 = abs(pattern1[0] - pattern2[0])
             diff2 = abs(pattern1[1] - pattern2[1])
@@ -317,6 +380,35 @@ class TrackOverallBehavior(DailyBehavior):
     
 # Wrapper function for previous fucntions to complete the behavior updating process
     def update_behavior(self, daily_pattern):
+        """
+        Updates the user's behavior pattern in the database based on the provided daily pattern.
+        This method retrieves the current and previous day's patterns from the database, evaluates 
+        their similarity with the provided daily pattern, and updates the current pattern accordingly. 
+        If the patterns are too different, it attempts to match the daily pattern with the previous day's 
+        pattern. If successful, it updates the current pattern using a combination of the previous day's 
+        pattern and the daily pattern. Otherwise, it retains the current pattern.
+        Args:
+            daily_pattern (list): A list representing the user's daily behavior pattern.
+        Returns:
+            str: A message indicating whether the patterns were too different to update or if the update 
+                 was successful.
+        Raises:
+            json.JSONDecodeError: If the current or previous day's pattern cannot be parsed as JSON.
+            Exception: If there are issues executing the database queries.
+        Database Schema:
+            - The method assumes a table named after the user's ID (`self.user_id`) with the following columns:
+                - `day`: The day of the week (e.g., Monday, Tuesday).
+                - `currentPattern`: The current behavior pattern stored as a JSON string.
+                - `previousPattern`: The previous day's behavior pattern stored as a JSON string.
+        Logging:
+            - Logs information about the similarity evaluation and the update process.
+            - Logs the final updated pattern for the user.
+        Note:
+            - The method uses K-Means clustering (`self.kmeans_pattern`) to generate a new pattern 
+              based on the combined data.
+            - The new pattern is sorted by the first element of each cluster before being stored.
+        """
+        
         pattern_query = f"""SELECT * FROM `{self.user_id}` 
         WHERE day = %s
         ORDER BY timestamp DESC
@@ -328,21 +420,29 @@ class TrackOverallBehavior(DailyBehavior):
         previous_day = json.loads(current_node[2])
         if current_node:
             if not self.evaluate_similarity(daily_pattern, current_pattern):
+                logging.info(f"Patterns are too different to update - trying to match the last day's pattern")
                 if not self.evaluate_similarity(daily_pattern, previous_day):
+                    logging.info(f"Pattersn cannot be matcvhed, updating the current pattern")
                     update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
                     values = [current_pattern, self.week_day]
                     self.cursor.execute(update_query, values)
                     return "Patterns are too different to update."
                 else:
+                    logging.info(f"Patterns are similar, updating the current pattern to the last day's pattern")
                     kmean_data = previous_day + daily_pattern
             else:
+                logging.info(f"Patterns are similar, updating the current pattern to the current day's pattern")
                 kmean_data = current_pattern + daily_pattern
 
             clusters = self.kmeans_pattern(kmean_data)
             new_pattern = self.set_new_pattern(clusters)
+            sorted_array = sorted(new_pattern, key=lambda x: x[0])
+
     
             update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
-            values = [new_pattern, self.week_day]
+            values = [sorted_array, self.week_day]
             self.cursor.execute(update_query, values)
+
+        logging.info(f"Behavior updated or {self.user_id} where the new pattern is {sorted_array}.")
             
     
