@@ -197,6 +197,27 @@ class DailyBehavior:
 ##############################################################
 class TrackOverallBehavior(DailyBehavior):
     def __init__(self, user_id, password, db_config=CONFIG):
+        """
+        Initializes the behavior tracking object for a specific user.
+        Args:
+            user_id (str): The unique identifier for the user.
+            password (str): The password for the user.
+            db_config (dict, optional): The database configuration dictionary. Defaults to CONFIG.
+        Attributes:
+            user_id (str): The unique identifier for the user.
+            password (str): The password for the user.
+            data_count (int): Counter for tracking data entries, initialized to 0.
+            db_config (dict): The database configuration dictionary.
+            week_day (str): The current day of the week in string format.
+            connection (mysql.connector.connection.MySQLConnection): The MySQL database connection object.
+            cursor (mysql.connector.cursor.MySQLCursor): The cursor object for executing database queries.
+        Raises:
+            Error: If there is an issue connecting to the MySQL database.
+        Notes:
+            - Creates a table for the user in the database if it does not already exist.
+            - Logs the table creation query for debugging purposes.
+        """
+
         self.user_id = user_id
         self.password = password
         self.data_count = 0
