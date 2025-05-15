@@ -76,6 +76,5 @@ class HandlePatterns:
         behavior_data.set_pattern(clusters)
         
         self.behavior.update_behavior(behavior_data.current_pattern)
-        self.behavior.add_behavior(behavior_data)
         
         return jsonify({"message": "Behavior added successfully"}), 200

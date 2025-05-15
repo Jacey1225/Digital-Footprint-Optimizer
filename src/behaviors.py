@@ -195,7 +195,7 @@ class DailyBehavior:
 ##############################################################
 # DATABASE INTEGRATION FOR USER BEHAVIOR TRACKING OVER WEEKS #
 ##############################################################
-class TrackOverallBehavior(DailyBehavior):
+class TrackOverallBehavior():
     def __init__(self, user_id, password, db_config=CONFIG):
         """
         Initializes the behavior tracking object for a specific user.
@@ -240,13 +240,13 @@ class TrackOverallBehavior(DailyBehavior):
         logging.info(f"Executing table creation query: {table_query}")
         self.cursor.execute(table_query)
 
-    def add_behavior(self, node):
+    def add_behavior(self, current_pattern, pattern_of_day):
         #node is the DailyBehavior object above
         day = self.week_day.lower()
         item_query = f"""INSERT INTO `{self.user_id}` (day, currentPattern, history)
         VALUES (%s, %s, %s);
         """
-        values = (day, json.dumps(node.current_pattern), json.dumps(node.daily_hours))
+        values = (day, json.dumps(current_pattern), json.dumps(pattern_of_day))
         self.cursor.execute(item_query, values)
         
         self.data_count += 1
@@ -429,11 +429,16 @@ class TrackOverallBehavior(DailyBehavior):
               based on the combined data.
             - The new pattern is sorted by the first element of each cluster before being stored.
         """
-        
-        pattern_query = f"""SELECT * FROM `{self.user_id}` 
-        WHERE day = %s
-        ORDER BY timestamp DESC
-        LIMIT 1;"""
+        if self.data_count > 7: # If there are more than 7 data points, we can start tracking by the day
+            pattern_query = f"""SELECT * FROM `{self.user_id}` 
+            WHERE day = %s
+            ORDER BY timestamp DESC
+            LIMIT 1;""" 
+        else: # If there are less than 7 data points, we can only track by the hour
+            pattern_query = f"""SELECT * FROM `{self.user_id}`
+            ORDER BY timestamp DESC
+            LIMIT 1;"""
+
         self.cursor.execute(pattern_query, (self.week_day,))
         current_node = self.cursor.fetchone()
         
@@ -443,7 +448,7 @@ class TrackOverallBehavior(DailyBehavior):
             if not self.evaluate_similarity(daily_pattern, current_pattern):
                 logging.info(f"Patterns are too different to update - trying to match the last day's pattern")
                 if not self.evaluate_similarity(daily_pattern, previous_day):
-                    logging.info(f"Pattersn cannot be matcvhed, updating the current pattern")
+                    logging.info(f"Pattern cannot be matched, updating the current pattern")
                     update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
                     values = [current_pattern, self.week_day]
                     self.cursor.execute(update_query, values)
@@ -460,10 +465,6 @@ class TrackOverallBehavior(DailyBehavior):
             sorted_array = sorted(new_pattern, key=lambda x: x[0])
 
     
-            update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
-            values = [sorted_array, self.week_day]
-            self.cursor.execute(update_query, values)
+            self.add_behavior(sorted_array, daily_pattern)
 
         logging.info(f"Behavior updated or {self.user_id} where the new pattern is {sorted_array}.")
-            
-    

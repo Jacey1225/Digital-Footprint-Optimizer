@@ -61,7 +61,7 @@ class UserIntegration:
         Args:
             user_id (string): Generated User ID
         """
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS {user_id} (user VARCHAR(255) PRIMARY KEY, pass VARCHAR(255), url VARCHAR(255), data_transfer INT, web_suggested_1 VARCHAR(255), web_suggested_2 VARCHAR(255), web_suggested_3 VARCHAR(255), date VARCHAR(255))")
+        self.cursor.execute(f"CREATE TABLE IF NOT EXISTS `{user_id}` (user VARCHAR(255) PRIMARY KEY, pass VARCHAR(255), email VARCHAR(255), url VARCHAR(255), data_transfer INT, web_suggested_1 VARCHAR(255), web_suggested_2 VARCHAR(255), web_suggested_3 VARCHAR(255), date VARCHAR(255))")
     
     def user_exists(self, user_id):
         """Verify if the user exists within any table within the SQL database and if the tables pass corresponds
