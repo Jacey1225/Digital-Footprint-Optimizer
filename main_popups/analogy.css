@@ -22,7 +22,8 @@ body {
     top: 2rem;
     right: -100%;
     transition: right 0.8s ease;
-    width: 65vh;
+    width: 40vw;
+    max-width: 600px;
     height: 35vh;
     background: linear-gradient(to right, #222D25, black);
     border-radius: 1em;
@@ -110,4 +111,10 @@ body {
     a {
         color: white;
     }
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
 }

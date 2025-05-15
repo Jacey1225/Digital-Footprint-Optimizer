@@ -12,7 +12,8 @@ body {
     top: 2rem;
     right: -100%;
     transition: right 0.8s ease;
-    width: 65vh;
+    width: 65vw;
+    max-width: 500px;
     height: 25vh;
     background: linear-gradient(to right, #222D25, black);
     border-radius: 1em;
@@ -49,24 +50,25 @@ body {
     color: white;
     display: flex;
     flex-direction: row;
-    padding-top: 0.5rem;
+    padding-top: 0.1rem;
+    
+    .right_icons {
+        margin-left: auto;
+    }
     .header_icon {
-        font-size: 4em;
+        font-size: 2.5em;
+        padding-top: 1rem;
     }
     .leaf {
+        padding-top: 1rem;
         padding-left: 2rem;
     }
     .cross {
         padding-right: 2rem;
-        font-size: 5em;
-        margin-top: -0.5rem;
+        margin-left: auto;
     }
     .cross:hover {
         cursor: pointer;
-    }
-    .dots {
-        font-size: 5em;
-        margin-top: -0.5rem;
     }
 }
 
@@ -80,9 +82,11 @@ body {
 }
 
 .right_content {
-    width: 50%;
+    width: 70%;
     float: right;
     text-align: center;
+    margin-top: -2rem;
+    margin-right: 2rem;
 }
 
 #main {
@@ -91,4 +95,10 @@ body {
 
 #secondary {
     font-size: 1.2em;
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
 }
