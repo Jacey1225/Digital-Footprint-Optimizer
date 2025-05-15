@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 CONFIG = {
     "host": os.environ.get('MYSQL_HOST', 'localhost'),
     "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
-    "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'website_tracker')
+    "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
+    "database": os.environ.get('MYSQL_DATABASE', 'website_tracker'),
+    "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
 }
 
 class GenerateAlternatives:
@@ -49,7 +50,7 @@ class GenerateAlternatives:
             self.cursor = self.connection.cursor()
         except Error as e:
             logger.info("Error while connecting to MySQL", e)
-                
+                        
     def calculate_total_emissions(self, green_hosted=None, data_transfer=None) -> float:
         """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estiamtes of intensities on different segments and summing them out
         Args:
