@@ -38,11 +38,12 @@ CONFIG = {
 }
 
 class DailyBehavior:
-    def __init__(self, user_id, password, daily_hours, z_threshold=1.8, iterations=10, db_config=CONFIG):
+    def __init__(self, user_id, daily_hours, z_threshold=1.8, min_z_threshold=0.65, iterations=10, db_config=CONFIG):
         self.user_id = user_id
         self.daily_hours = daily_hours
         self.activity_spikes = []
         self.z_threshold = z_threshold
+        self.min_z_threshold = min_z_threshold
         self.db_config = db_config
         self.iterations = iterations
         self.current_pattern = []
@@ -69,13 +70,14 @@ class DailyBehavior:
 
             std = variance ** 0.5
 
-            if std < 0.05:  # Skip if standard deviation is too low
+            if std < 0.1:  # Skip if standard deviation is too low
                 logging.warning(f"Index {i}: Skipping due to low standard deviation.")
                 continue
 
             mean_rate_of_change = abs(mean - previous_mean) 
             std_rate_of_change = abs(std - previous_std)
-            self.z_threshold = 1.8 * (mean_rate_of_change + std_rate_of_change) / 2
+            new_threshold = 1.8 * (mean_rate_of_change + std_rate_of_change) / 2
+            self.z_threshold = max(self.min_z_threshold, new_threshold)
             logging.info(f"New Z-Threshold: {self.z_threshold:.2f}")
 
             z_score = (new_value - mean) / std
@@ -90,7 +92,10 @@ class DailyBehavior:
         logging.info(f"User {self.user_id} detected {len(self.activity_spikes)} spikes.")
         logging.info(f"Spikes: {self.activity_spikes}")
     
-############################################################################  
+##########################################
+# K-MEANS CLUSTERING FOR ACTIVITY SPIKES #
+##########################################
+
     def get_k(self):
         """
         Determine the optimal number of clusters (k) using the elbow method.
@@ -182,20 +187,20 @@ class DailyBehavior:
             clusters = new_clusters
         return clusters
     
-    def set_current_pattern(self, clusters):
+    def set_pattern(self, clusters):
         for cluster_id, points in clusters.items():
             activity_range = [min(points), max(points)]
             self.current_pattern.append(activity_range)
         
-############################################################################
-
-
+##############################################################
+# DATABASE INTEGRATION FOR USER BEHAVIOR TRACKING OVER WEEKS #
+##############################################################
 class TrackOverallBehavior(DailyBehavior):
     def __init__(self, user_id, password, db_config=CONFIG):
         self.user_id = user_id
         self.password = password
         self.data_count = 0
-        self.sb_config = db_config
+        self.db_config = db_config
 
         day = datetime.now()    
         self.week_day = day.strftime("%A")
@@ -207,23 +212,137 @@ class TrackOverallBehavior(DailyBehavior):
         self.cursor = self.connection.cursor()
         table_query = f"""
         CREATE TABLE IF NOT EXISTS `{self.user_id}` (
-            currentPattern VARCHAR(255), 
-            monday VARCHAR(255), 
-            tuesday VARCHAR(255), 
-            wednesday VARCHAR(255), 
-            thursday VARCHAR(255), 
-            friday VARCHAR(255), 
-            saturday VARCHAR(255), 
-            sunday VARCHAR(255));"""
+            day VARCHAR(255) PRIMARY KEY,
+            currentPattern TEXT,
+            history TEXT);"""
+        
+        logging.info(f"Executing table creation query: {table_query}")
         self.cursor.execute(table_query)
 
     def add_behavior(self, node):
         #node is the DailyBehavior object above
         day = self.week_day.lower()
-        item_query = f"""INSERT INTO {self.user_id} (currentPattern, {day})
+        item_query = f"""INSERT INTO `{self.user_id}` (day, currentPattern, history)
         VALUES (%s, %s, %s);
         """
-        values = (self.user_id, self.password, day, node.current_pattern)
-        self.cursor.execute()
+        values = (day, json.dumps(node.current_pattern), json.dumps(node.daily_hours))
+        self.cursor.execute(item_query, values)
         
         self.data_count += 1
+
+########################################################
+# K-MEANS CLUSTERING FOR PAST PATTERNS AND CURRENT DAY #
+########################################################
+    def get_k(self, pattern_data):
+        if len(pattern_data) < 2:
+            return 1
+        
+        distortions = []
+        max_k = min(10, len(pattern_data))
+        data = np.array(pattern_data)
+
+        for k in range(1, max_k + 1):
+            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans.fit(data)
+            distortions.append(kmeans.inertia_)
+        
+        deltas = np.diff(distortions)
+        second_deltas = np.diff(deltas)
+        elbow_point = np.argmax(second_deltas) + 2
+
+        optimal_k = max(1, min(elbow_point, max_k))
+        logging.info(f"Optimal k determined by elbow method: {optimal_k}")
+        return optimal_k
+    
+    def distances(self, target, centroids):
+        distances = []
+        for point in centroids:
+            distance1 = abs(target[0] - point[0])
+            distance2 = abs(target[1] - point[1])
+            distance = distance1 + distance2
+            distances.append(distance)
+
+        return distances.index(min(distances))
+    
+    def update_centroids(self, cluster_results, pattern_data):
+        updated_points = []
+        for rand_pt, points in cluster_results.items():
+            if points:
+                updated_points.append([sum(p[0] for p in points) // len(points), sum(p[1] for p in points) // len(points)])
+            else:
+                updated_points.append(random.choice(pattern_data))
+        
+        return updated_points
+    
+    def kmeans_pattern(self, kmean_data, iterations=10):
+        if len(kmean_data) < 2:
+            return {0: kmean_data}
+        
+        k = self.get_k(kmean_data)
+        centroids = random.sample(kmean_data, k)
+
+        clusters = {i: [] for i in range(len(centroids))}
+        for i in range(iterations):
+            new_clusters = {i: [] for i in range(len(centroids))}
+            for j in range(len(kmean_data)):
+                index = self.distances(kmean_data[j], centroids)
+                new_clusters[index].append(kmean_data[j])
+
+            new_centroids = self.update_centroids(new_clusters, kmean_data)
+            if new_centroids == centroids:
+                break
+
+            centroids = new_centroids
+            clusters = new_clusters
+        
+        return clusters
+        
+    def set_new_pattern(self, clusters):
+        ranges = []
+        for cluster_id, points in clusters.items():
+            average_start = sum(p[0] for p in points) // len(points)
+            average_stop = sum(p[1] for p in points) // len(points)
+            ranges.append([average_start, average_stop])
+        
+        return ranges
+    
+    def evaluate_similarity(self, daily_pattern, current_pattern, tolerance=2.5):
+        for pattern1, pattern2 in zip(daily_pattern, current_pattern):
+            diff1 = abs(pattern1[0] - pattern2[0])
+            diff2 = abs(pattern1[1] - pattern2[1])
+            average_diff = (diff1 + diff2) / 2
+            if average_diff > tolerance:
+                return False
+        return True
+    
+# Wrapper function for previous fucntions to complete the behavior updating process
+    def update_behavior(self, daily_pattern):
+        pattern_query = f"""SELECT * FROM `{self.user_id}` 
+        WHERE day = %s
+        ORDER BY timestamp DESC
+        LIMIT 1;"""
+        self.cursor.execute(pattern_query, (self.week_day,))
+        current_node = self.cursor.fetchone()
+        
+        current_pattern = json.loads(current_node[1])
+        previous_day = json.loads(current_node[2])
+        if current_node:
+            if not self.evaluate_similarity(daily_pattern, current_pattern):
+                if not self.evaluate_similarity(daily_pattern, previous_day):
+                    update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
+                    values = [current_pattern, self.week_day]
+                    self.cursor.execute(update_query, values)
+                    return "Patterns are too different to update."
+                else:
+                    kmean_data = previous_day + daily_pattern
+            else:
+                kmean_data = current_pattern + daily_pattern
+
+            clusters = self.kmeans_pattern(kmean_data)
+            new_pattern = self.set_new_pattern(clusters)
+    
+            update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
+            values = [new_pattern, self.week_day]
+            self.cursor.execute(update_query, values)
+            
+    
