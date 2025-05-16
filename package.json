@@ -1,0 +1,23 @@
+{
+  "name": "digital-footprint-optimizer",
+  "version": "1.0.0",
+  "description": "CarbonBytes: Digital Carbon Footprint Tracker Overview CarbonBytes is a browser extension that helps users track, understand, and reduce their digital carbon footprint. By monitoring online activities and suggesting eco-friendly alternatives, this tool empowers users to make environmentally conscious choices while browsing the web. The Problem Digital activities carry a significant environmental cost that often goes unnoticed:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jacey1225/Digital-Footprint-Optimizer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Jacey1225/Digital-Footprint-Optimizer/issues"
+  },
+  "homepage": "https://github.com/Jacey1225/Digital-Footprint-Optimizer#readme",
+  "dependencies": {
+    "@tgwf/co2": "^0.16.7"
+  }
+}
