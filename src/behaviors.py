@@ -468,3 +468,8 @@ class TrackOverallBehavior():
             self.add_behavior(sorted_array, daily_pattern)
 
         logging.info(f"Behavior updated or {self.user_id} where the new pattern is {sorted_array}.")
+    
+    def get_next_pattern(self):
+        if len(self.data_count) > 7:
+            next_pattern = f"SELECT currentPattern FROM `{self.user_id} WHERE day = %s" 
+        
