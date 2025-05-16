@@ -219,12 +219,11 @@ class TrackOverallBehavior():
         """
 
         self.user_id = user_id
-        self.password = password
-        self.data_count = 0
+        self.password = password 
         self.db_config = db_config
-
         day = datetime.now()    
         self.week_day = day.strftime("%A")
+
         try:
             self.connection = mysql.connector.connect(**self.db_config)
         except Error as e:
@@ -240,6 +239,11 @@ class TrackOverallBehavior():
         logging.info(f"Executing table creation query: {table_query}")
         self.cursor.execute(table_query)
 
+        count_query = f"SELECT COUNT (*) FROM `{self.user_id}`"
+        self.cursor.execute(count_query)
+        self.data_count = self.cursor.fetchone()[0]
+
+
     def add_behavior(self, current_pattern, pattern_of_day):
         #node is the DailyBehavior object above
         day = self.week_day.lower()
@@ -249,7 +253,6 @@ class TrackOverallBehavior():
         values = (day, json.dumps(current_pattern), json.dumps(pattern_of_day))
         self.cursor.execute(item_query, values)
         
-        self.data_count += 1
 
 ########################################################
 # K-MEANS CLUSTERING FOR PAST PATTERNS AND CURRENT DAY #
@@ -471,5 +474,14 @@ class TrackOverallBehavior():
     
     def get_next_pattern(self):
         if len(self.data_count) > 7:
-            next_pattern = f"SELECT currentPattern FROM `{self.user_id} WHERE day = %s" 
-        
+            next_pattern = f"SELECT currentPattern FROM `{self.user_id}` WHERE day = %s" 
+            self.cursor.execute(next_pattern, (self.week_day))
+        else:
+            next_pattern = f"SELECT currentPattern FROM `{self.user_id}` ORDER BY timestamp DESC LIMIT 1"
+            self.cursor.execute(next_pattern)
+
+        pattern = self.cursor.fetchone()
+        if pattern:
+            return json.loads(pattern[0])
+        else:
+            return None
