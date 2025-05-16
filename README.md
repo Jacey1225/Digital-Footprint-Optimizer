@@ -70,3 +70,4 @@ This process is determined using standard deviations, and will output a seperate
 5. When this final result is made, it will attach the known pattern of hours to a database given the current day of the week. This will help the model generalize over each day of the week as data grows more abundant.
 6. Keeping records of the previous activity reports from each day, it will ignore data that seems unusual to its known patterns, and as they get more consistent, it will pick up where it left and adjust itself accordingly. 
 The final result of the pattern output is each index that the user is most active such as [7, 19, etc...] which can be called from the front-end API to let it know exactly what time frames to start watching activity, and when not to. 
+7. Statistical Analysis output example: [[7, 9], [13, 17]] -> Ranges of activity hours
