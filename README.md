@@ -58,3 +58,15 @@ Acknowledgments
 The Green Web Foundation for CO2 calculation methodologies
 OECD-OPSI research on digital carbon footprints
 All contributors and supporters of sustainable computing initiatives
+
+Data Processing Optimization Method:
+Front-End: 
+1. For each hour of the day, track user activity and divide the total minutes the user was active by 60 to get the percentage of activity for that hour. 
+2. At the end of the day, send the full 24-hour report to the back-end API
+It should look like this ([0, 0, 0, 0.2, 0.3, 0, 0.5, 0.8, 0.8, 0.76, 0.3, 0.21, 0, 0.05, 0.01, 0.09, 0, 0, 0.5, 0.8, 0.8, 0.76, 0.3, 0.1]) This is an example of a list of percentage of activity for each hour of the day
+3. After this report is sent to the back-end API, it will process it to identify spikes within the hours such as index 7 with an activity percentage of 0.8. 
+This process is determined using standard deviations, and will output a seperate list of each respective index such as [7, 19, etc...] 
+4. As more data fills up each day, it will begin to cluster patterns together using the k-means clustering algorithm, modifying the pattern in-place ignoring uncommon outliers. 
+5. When this final result is made, it will attach the known pattern of hours to a database given the current day of the week. This will help the model generalize over each day of the week as data grows more abundant.
+6. Keeping records of the previous activity reports from each day, it will ignore data that seems unusual to its known patterns, and as they get more consistent, it will pick up where it left and adjust itself accordingly. 
+The final result of the pattern output is each index that the user is most active such as [7, 19, etc...] which can be called from the front-end API to let it know exactly what time frames to start watching activity, and when not to. 
