@@ -14,7 +14,7 @@ body {
     transition: right 0.8s ease;
     width: 65vw;
     max-width: 500px;
-    height: 25vh;
+    height: auto;
     background: linear-gradient(to right, #222D25, black);
     border-radius: 1em;
     font-size: 1em;
