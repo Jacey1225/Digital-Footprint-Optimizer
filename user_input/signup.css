@@ -209,6 +209,6 @@ button:hover {
 @media (min-width: 1200px) {
   .login_box {
     width: 50rem;   /* or 60rem */
-    max-width: 30rem;
+    max-width: none;
   }
 }
