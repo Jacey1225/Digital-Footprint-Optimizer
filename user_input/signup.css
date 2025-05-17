@@ -28,14 +28,6 @@ body {
     z-index: 2000;
 }
 
-@media (min-width: 1200px) {
-  .login_box {
-    width: 50rem;   /* or 60rem */
-    max-width: none;
-  }
-}
-
-
 .login_box.show {
     right: 2rem;
     animation: show_slide 0.8s ease forwards;
@@ -211,5 +203,12 @@ button:hover {
 @media (min-width: 1200px) {
   .input_group input {
     width: 100%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .login_box {
+    width: 50rem;   /* or 60rem */
+    max-width: 30rem;
   }
 }
