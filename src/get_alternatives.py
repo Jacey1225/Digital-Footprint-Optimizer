@@ -186,3 +186,14 @@ class GenerateAlternatives:
             return filtered_suggestions
         else:
             return None
+    
+    def fetch_light_suggestions(self, warning):
+        suggestion = ""
+        if warning == "long":
+            suggestion = "Looks like you've been active for a while, try taking a break!"
+        elif warning == "video":
+            suggestion = "Looks like the video is really long, try watching a shorter one!"
+        elif warning == "message":
+            suggestion = "Looks like you've been chatting for quite some time, try taking a break!"
+
+        return suggestion
