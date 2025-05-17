@@ -49,7 +49,7 @@ class DailyBehavior:
         self.current_pattern = []
     
     def average_spikes(self):
-        """Process self.dailyhours(A list of 24 elements eachrepresenting the percentage of activity from a user per hour)
+        """Process self.dailyhours(A list of 24 elements each representing the percentage of activity from a user per hour)
         into a list of the indices where the activity spikes the highest throughout the day. This is done by
         incrementally updating the mean and standard deviation, then calcualting it's z-score concerning the z-threshold which
         is dynamically updated in respect to the growth of the meand and standard deviation.
