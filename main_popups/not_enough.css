@@ -15,6 +15,7 @@ body {
     width: 65vw;
     max-width: 420px;
     height: auto;
+    padding-bottom: 1rem;
     background: linear-gradient(to right, #222D25, black);
     border-radius: 1em;
     font-size: 1em;
