@@ -4,7 +4,7 @@ html {
 }
 
 body {
-    overflow: hidden;
+    overflow: auto;
 }
 
 .show_login {
@@ -12,22 +12,26 @@ body {
     height: 100px;
     margin-top: 500px;
 }
+
 .login_box {
-    position: fixed;
-    top: 2rem;
-    right: -100%;
-    transition: right 0.8s ease;
-    width: 70vw;
-    max-width: 500px;
-    height: 41vh;
-    background: linear-gradient(to right, #222D25, black);
-    border-radius: 1em;
-    font-size: 1em;
-    font-family: 'Poppins', sans-serif;
-    z-index: 2000;
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  width: 90%;
+  max-width: 50rem;
+  min-height: 27rem;
+  height: auto;  background: linear-gradient(to right, #222D25, black);
+  border-radius: 1em;
+  font-size: 1em;
+  font-family: 'Poppins', sans-serif;
+  z-index: 2000;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
 }
 
 .login_box.show {
+    display: flex;
     right: 2rem;
     animation: show_slide 0.8s ease forwards;
 }
@@ -126,12 +130,31 @@ body {
 .right_content {
     display: flex;
     flex-direction: column;
+    align-items: center;
+}
+
+.input_group {
+    margin-bottom: 15px;
 }
 
 .input_group {
     position: relative;
-    margin: 1.6rem 0;
+    margin: 1rem 0;
 }
+
+@media (min-width: 1200px) {
+    #login_text {
+        font-size: 2.4em;
+    }
+
+    .input_group label {
+        font-size: 1.4em;
+    }
+
+    .input_group input {
+        font-size: 1.4em;
+    }
+} 
 
 .input_group label {
     position: absolute;
@@ -147,7 +170,7 @@ body {
 
 .input_group input {
     width: 80%;
-    height: 170%;
+    height: 3rem;
     color: #565656;
     font-size: 1.2em;
     padding: 0 15px;
@@ -186,4 +209,15 @@ button {
 button:hover {
     cursor: pointer;
     background-color: grey;
+}
+
+@media (min-width: 1200px) {
+  .login_box {
+    width: 50rem;
+    max-width: none;
+  }
+
+  .input_group input {
+    width: 100%;
+  }
 }
