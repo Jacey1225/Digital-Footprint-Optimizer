@@ -117,6 +117,7 @@ body {
 
 #forgot_password {
     width: 123%;
+    margin-left: -3rem;
 }
 
 .link a {
