@@ -1,0 +1,170 @@
+html {
+    font-size: 62.5%;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+}
+
+.overview_box {
+    position: fixed;
+    top: 2rem;
+    right: -100%;
+    transition: right 0.8s ease;
+    /* width: 65vw;
+    max-width: 500px; */
+    height: auto;
+    max-height: 95vh;
+    overflow-y: auto;
+    padding-bottom: 1rem;
+    background: linear-gradient(to right, #222D25, black);
+    border-radius: 1em;
+    font-size: 1em;
+    z-index: 2000;
+}
+
+/* MEDIA STUFF */
+
+@media (min-width: 1440px) {
+    .overview_box {
+        max-width: 500px;
+    }
+}
+
+/* Small screens: phones */
+@media (max-width: 600px) {
+    .overview_box {
+        width: 90vw;
+        font-size: 0.9rem;
+    }
+
+    #main_title {
+        font-size: 2em;
+    }
+
+    .header_icon {
+        font-size: 2em;
+    }
+}
+
+/* Medium screens: tablets */
+@media (min-width: 601px) and (max-width: 1024px) {
+    .overview_box {
+        width: 75vw;
+        font-size: 1rem;
+    }
+
+    #main_title {
+        font-size: 2.5em;
+    }
+}
+
+/* Large screens: desktops */
+@media (min-width: 1025px) {
+    .overview_box {
+        width: 50vw;
+        font-size: 1.1rem;
+    }
+
+    #main_title {
+        font-size: 3.5em;
+    }
+}
+
+.overview_box.show {
+    right: 2rem;
+    animation: show_slide 0.8s ease forwards;
+}
+
+@keyframes show_slide {
+    0% {
+        transform: translateX(100%);
+    }
+    40%{
+        transform: translateX(-10%);
+    }
+    80% {
+        transform: translateX(2%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.overview_box.hide {
+    right: -100%;
+}
+
+.header {
+    color: white;
+    display: flex;
+    flex-direction: row;
+    padding-top: 0.1rem;
+    
+    .right_icons {
+        margin-left: auto;
+    }
+    .header_icon {
+        font-size: 2.5em;
+        padding-top: 1rem;
+    }
+    .leaf {
+        padding-top: 1rem;
+        padding-left: 2rem;
+    }
+    .cross {
+        padding-right: 2rem;
+        margin-left: auto;
+    }
+    .cross:hover {
+        cursor: pointer;
+    }
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
+}
+
+.text_content {
+    color: white;
+    text-align: center;
+}
+
+#group_one {
+    padding-bottom: 2rem;
+    line-height: 1rem;
+}
+
+#main_title {
+    font-size: 3em;
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+#subtitle {
+    font-size: 1.5em;
+}
+
+.energy,
+#activity {
+    font-size: 2.3em;
+    color: white;
+    text-align: center;
+}
+
+#group_two {
+    line-height: 1rem;
+    padding-bottom: 2rem;
+}
+
+#group_three {
+    line-height: 1rem;
+    padding-bottom: 2rem;
+}
+
+.data {
+    font-size: 1.3em;
+}
