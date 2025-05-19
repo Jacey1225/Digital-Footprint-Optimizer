@@ -18,14 +18,17 @@ CONFIG = {
 
 logger = logging.getLogger(__name__)
 
-class UserInfo:
-    def __init__(self, user_id, daily_report):
+class Node:
+    def __init__(self, user_id, daily_hours, z_threshold=1.8, min_z_threshold=0.65, iterations=10):
         self.user_id = user_id
-        self.daily_report = daily_report
-        self.connection = mysql.connector.connect(**CONFIG)
-        self.cursor = self.connection.cursor()
-        self.data = []
-        self.cluster_data = []
-        self.cluster_labels = []
-        self.cluster_centers = []
-        self.clustered_data = []
+        self.daily_hours = daily_hours
+        self.z_threshold = z_threshold
+        self.min_z_threshold = min_z_threshold
+        self.iterations = iterations
+
+class userInfo:
+    def fetch_info(self, user_id, hours):
+        hour_node = Node(user_id, hours)
+        return hour_node
+    
+        
