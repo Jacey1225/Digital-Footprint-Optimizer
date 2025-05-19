@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="weekly_overview.css">
+    <link rel="stylesheet" href="testing.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+</head>
+<body>
+  <button class="show_success">Show Success</button>
+
+  <div class="overview_box hide">
+    <div class="header">
+      <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+      <p id="title">CarByte</p>
+      <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>
+    </div>
+
+    <div class="text_content">
+      <div id="group_one">
+        <p id="main_title">MAY WEEKLY REPORT</p>
+        <p id="subtitle">WEEK 2 (June 8 - 14)</p>
+      </div>
+      <div id="group_two">
+        <p class="energy">TOTAL ENERGY SAVED:</p>
+        <p class="data">You saved <b>30</b> gigabytes (GB) worth of carbon energy this week.</p>
+        <p class="data">You took <b>2</b> cars off the road!</p>
+      </div>
+      <div id="group_three">
+        <p class="energy">TOTAL ENERGY SPENT:</p>
+        <p class="data">You spent <b>56</b> gigabytes (GB) worth of carbon energy this week.</p>
+      </div>
+    </div>
+      
+    <p id="activity">ACTIVITY:</p>
+
+    <div class="chart">
+      <div class="chart_types">
+        <button onclick="setChartType('bar')">B</button>
+        <button onclick="setChartType('line')">L</button>
+        <button onclick="setChartType('doughnut')">D</button>
+        <button onclick="setChartType('polarArea')">PA</button>
+        <button onclick="setChartType('radar')">R</button>
+      </div>
+      <canvas id="myChart"></canvas>
+    </div>
+
+    <div class="chart_two">
+      <div class="chart_types_two">
+        <button onclick="setChartTypeTwo('bar')">B</button>
+        <button onclick="setChartTypeTwo('line')">L</button>
+        <button onclick="setChartTypeTwo('doughnut')">D</button>
+        <button onclick="setChartTypeTwo('polarArea')">PA</button>
+        <button onclick="setChartTypeTwo('radar')">R</button>
+      </div>
+      <canvas id="myChartTwo"></canvas>
+    </div>
+
+    </div>
+
+    <script>
+        $(document).ready(function(){
+            $('.show_success').click(function(){
+                $('.overview_box').removeClass("hide");
+                $('.overview_box').addClass("show");
+            });
+            $('.cross').click(function(){
+                $('.overview_box').addClass("hide");
+                $('.overview_box').removeClass("show");
+            });
+        });
+    </script>
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="testing.js"></script>
+</body>
+</html>
+
+
+<!-- things to test:
+1. if the title to weekly report changes every month 
+2. if the data changes (together with charts)
+3. if the user can log in/sign up/reset password -->
