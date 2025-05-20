@@ -1,13 +1,23 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>My Google Extension</title>
-    
-  </head>
-  <body>
-    <h1>Hello! user</h1>
-    <button id="btn">Click me</button>
-    <script src="popup.js"></script>
-    <script src="userTracking.js"></script>
-  </body>
-</html>
+<div id="loginPage">
+  <h1>Sign In</h1>
+  <input id="email" placeholder="Email" />
+  <input id="password" placeholder="Password" type="password" />
+  <button id="loginBtn">Log In</button>
+</div>
+
+<div id="dashboardPage" style="display:none;">
+  <h2>Welcome back!</h2>
+  <h2>this is the dashabord</h2>
+  <p>You are logged in.</p>
+  <button id="trackBtn">Click here to start tracking your digital footprint</button>
+  <button id="logoutBtn">Log Out</button>
+</div>
+
+<div id="activityPage" style="display:none;">
+  <h2>here is ur weekly report from last week</h2>
+  <h2>and here is the suggestion for you:</h2>
+ 
+</div>
+
+
+<script src="popup.js"></script>
