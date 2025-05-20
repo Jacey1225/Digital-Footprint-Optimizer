@@ -1,109 +1,101 @@
 import pytest
-from unittest.mock import MagicMock
-
+import logging
+import random
+import json
+from datetime import datetime
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.behaviors import DailyBehavior, TrackOverallBehavior
-import json
-import logging
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from src.behaviors import DailyBehavior, TrackOverallBehavior, CONFIG
+import mysql.connector
+from mysql.connector import Error
 
+# Configure logging for the test
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 
-@pytest.fixture
-def mock_behavior_tracker():
-    # Mock database configuration
-    mock_db_config = {
-        "host": "localhost",
-        "user": "jaceysimpson",
-        "password": "WeLoveDoggies16!",
-        "database": "userInfo"
-    }
-    logger.info("Mock database configuration created: %s", mock_db_config)
+# Test database setup
+TEST_USER_ID = "test_user"
+TEST_PASSWORD = "test_password"
 
-    # Mock user ID and password
-    user_id = "test_user_id"
-    password = "test_password"
-    logger.info("Mock user credentials set: user_id=%s", user_id)
+@pytest.fixture(scope="module")
+def db_connection():
+    """Fixture to set up and tear down the test database connection."""
+    try:
+        connection = mysql.connector.connect(**CONFIG)
+        cursor = connection.cursor()
+        # Create a test table for the user
+        cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS `{TEST_USER_ID}` (
+            day VARCHAR(255) PRIMARY KEY,
+            currentPattern TEXT,
+            history TEXT
+        );
+        """)
+        connection.commit()
+        yield connection
+    finally:
+        # Clean up: Drop the test table after tests
+        cursor.execute(f"DROP TABLE IF EXISTS `{TEST_USER_ID}`;")
+        connection.commit()
+        connection.close()
 
-    # Create a TrackOverallBehavior instance
-    behavior_tracker = TrackOverallBehavior(user_id, password, mock_db_config)
-    logger.info("TrackOverallBehavior instance created.")
+def generate_mock_data():
+    """Generate mock data for testing."""
+    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    data = {}
+    for day in days_of_week:
+        # Generate a 2D list where each item is a range from 1-24
+        pattern = [[random.randint(1, 12), random.randint(13, 24)] for _ in range(3)]
+        # Generate a mock list of 24 items ranging from 0-1 (activity percentages)
+        activity_percentages = [round(random.uniform(0, 1), 2) for _ in range(24)]
+        data[day] = {"pattern": pattern, "activity_percentages": activity_percentages}
+    return data
 
-    # Mock the database cursor and connection
-    behavior_tracker.cursor = MagicMock()
-    behavior_tracker.connection = MagicMock()
-    logger.info("Mock database cursor and connection initialized.")
+def test_behavior_processing(db_connection):
+    """Test the behavior processing functions."""
+    mock_data = generate_mock_data()
+    behavior_tracker = TrackOverallBehavior(TEST_USER_ID, TEST_PASSWORD, CONFIG)
 
-    return behavior_tracker
+    for day, data in mock_data.items():
+        # Set the current day for testing
+        behavior_tracker.week_day = day
 
-@pytest.fixture
-def mock_daily_behavior():
-    # Create a DailyBehavior instance
-    user_id = "test_user_id"
-    password = "test_password"
-    logger.info("Creating DailyBehavior instance with user_id=%s", user_id)
-    daily_behavior = DailyBehavior(user_id, password)
+        # Create a DailyBehavior instance
+        daily_behavior = DailyBehavior(
+            user_id=TEST_USER_ID,
+            daily_hours=data["activity_percentages"],
+            db_config=CONFIG
+        )
 
-    # Mock activity spikes data (2D array)
-    daily_behavior.activity_spikes = [
-        [1, 5], [6, 10], [15, 20], [21, 25]
-    ]
-    logger.info("Mock activity spikes data set: %s", daily_behavior.activity_spikes)
+        # Process the activity percentages
+        daily_behavior.average_spikes()
+        clusters = daily_behavior.kmeans_spikes()
+        daily_behavior.set_pattern(clusters)
 
-    return daily_behavior
+        # Log the results
+        logging.info(f"Day: {day}")
+        logging.info(f"Activity Percentages: {data['activity_percentages']}")
+        logging.info(f"Detected Spikes: {daily_behavior.activity_spikes}")
+        logging.info(f"Clusters: {clusters}")
+        logging.info(f"Current Pattern: {daily_behavior.current_pattern}")
 
-def test_kmeans_pattern(mock_behavior_tracker, mock_daily_behavior): 
-    # Combine mock activity spikes data
-    kmean_data = mock_daily_behavior.activity_spikes
-    logger.info("Mock activity spikes data combined for kmeans_pattern: %s", kmean_data)
+        # Add the behavior to the database
+        behavior_tracker.add_behavior(daily_behavior.current_pattern, data["pattern"])
 
-    # Call the kmeans_pattern function
-    clusters = mock_behavior_tracker.kmeans_pattern(kmean_data)
-    logger.info("kmeans_pattern function called. Clusters returned: %s", clusters)
+    # Verify the data in the database
+    cursor = db_connection.cursor()
+    cursor.execute(f"SELECT * FROM `{TEST_USER_ID}`;")
+    rows = cursor.fetchall()
+    assert len(rows) == 7  # Ensure all 7 days of data were added
 
-    # Assert that clusters are returned
-    assert isinstance(clusters, dict)
-    assert len(clusters) > 0
-    logger.info("Assertions passed: clusters is a dictionary and contains data.")
-
-def test_set_new_pattern(mock_behavior_tracker):
-    # Mock clusters data
-    clusters = {
-        0: [[1, 5], [6, 10]],
-        1: [[15, 20], [21, 25]]
-    }
-    logger.info("Mock clusters data created: %s", clusters)
-
-    # Call the set_new_pattern function
-    new_pattern = mock_behavior_tracker.set_new_pattern(clusters)
-    logger.info("set_new_pattern function called. New pattern returned: %s", new_pattern)
-
-    # Assert that a new pattern is returned
-    assert isinstance(new_pattern, list)
-    assert len(new_pattern) == len(clusters)
-    logger.info("Assertions passed: new_pattern is a list and matches the number of clusters.")
-
-def test_update_behavior(mock_behavior_tracker, mock_daily_behavior):
-    # Mock daily pattern
-    daily_pattern = mock_daily_behavior.activity_spikes
-    logger.info("Mock daily pattern set: %s", daily_pattern)
-
-    # Mock database query results
-    mock_behavior_tracker.cursor.fetchone.return_value = [
-        "test_day",
-        json.dumps([[1, 5], [6, 10]]),  # currentPattern
-        json.dumps([[15, 20], [21, 25]])  # history
-    ]
-    logger.info("Mock database query results set: %s", mock_behavior_tracker.cursor.fetchone.return_value)
-
-    # Call the update_behavior function
-    logger.info("Calling update_behavior function with daily_pattern: %s", daily_pattern)
-    result = mock_behavior_tracker.update_behavior(daily_pattern)
-    logger.info("update_behavior function executed. Result: %s", result)
-
-    # Assert that the function executes without errors
-    assert result is None or isinstance(result, str)
-    logger.info("Assertions passed: result is None or a string.")
+    for row in rows:
+        day, current_pattern, history = row
+        logging.info(f"Database Entry - Day: {day}, Current Pattern: {current_pattern}, History: {history}")
+        assert day in mock_data
+        assert json.loads(current_pattern) is not None
+        assert json.loads(history) == mock_data[day]["pattern"]
