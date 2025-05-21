@@ -1,5 +1,5 @@
 from src.user_integration import UserIntegration
-from src.behaviors import DailyBehavior, TrackOverallBehavior
+from src.track_behaviors import UpdateDB, FetchNext
 from flask import Flask, request, jsonify
 from flask.views import MethodView
 import os
@@ -54,23 +54,23 @@ SUGGESTION_CONFIG = {
 def track_behavior(self):
     data = request.get_json()
     user_id = data.get("user_id")
-    daily_report = data.get("daily_report")
-    behavior_data = DailyBehavior(user_id, daily_report)
-    behavior_data.average_spikes()
-    clusters = behavior_data.kmeans_spikes()
-    behavior_data.set_pattern(clusters)
-    
-    behavior = TrackOverallBehavior(user_id)
-    behavior.update_behavior(behavior_data.current_pattern)
-    
+    daily_hours = data.get("daily_hours")
+
+    behavior = UpdateDB(user_id, daily_hours)
+    behavior.detect_spikes()
+    behavior.get_current_pattern()
+    behavior.get_updated_pattern()
+    behavior.update_db()
+
     return jsonify({"message": "Behavior added successfully"}), 200
 
 @app.route('/fetch-pattern', methods=["POST"])
 def fetch_pattern(self):
     data = request.get_json()
     user_id = data.get("user_id")
-    behavior = TrackOverallBehavior(user_id)
-    behavior.get_next_pattern()
+    pattern_obj = FetchNext(user_id)
 
-    
-    return jsonify({"message": "Tracker initialized successfully"}), 200
+    pattern = pattern_obj.get_current_pattern()
+    return jsonify({
+        "message": "Tracker initialized successfully",
+        "pattern": pattern}), 200
