@@ -3,7 +3,7 @@
   "name": "CO2 Tracker",
   "version": "1.0",
   "description": "Show URL on each page!",
-  "permissions": [],
+  "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
