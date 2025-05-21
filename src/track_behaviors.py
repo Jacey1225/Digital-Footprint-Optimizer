@@ -53,21 +53,22 @@ class DBConnection:
             except Error as e:
                 logger.error("Error while connecting to MySQL", e)
     
-    def find(self, user_id, from_value, values):
+    def find(self, where_values, values):
         try:
-            count_query = f"""SELECT * FROM {user_id} WHERE {from_value} = %s"""
-            self.cursor.execute(count_query, (values,))
+            count_query = f"""SELECT * FROM behaviors WHERE {where_values[0]} = %s AND {where_values[1]} = %s"""
+            self.cursor.execute(count_query, (values[0], values[1]))
             count = self.cursor.fetchall()
             return count
         except Error as e:
             logger.error(f"Error counting rows: {e}")
             self.connection.rollback()
 
-    def create_table(self, user_id):
+    def create_table(self):
         try:
             table_query = f"""CREATE TABLE IF NOT EXISTS
-            `{user_id}` (
-                day VARCHAR(255) PRIMARY KEY,
+            behaviors (
+                userID VARCHAR(255) PRIMARY KEY,
+                day VARCHAR(255),
                 currentPattern TEXT,
                 history TEXT);"""
             self.cursor.execute(table_query)
@@ -76,7 +77,7 @@ class DBConnection:
             logger.error(f"Error creating table: {e}")
             self.connection.rollback()
     
-    def select_items(self, user_id, select_value, from_value, where_value, order_value, values, fetchall=True, desc=True):
+    def select_items(self, select_value, where_values, order_value, values, fetchall=True, desc=True):
         if desc:
             order_value = f"{order_value} DESC LIMIT 1"
         else:
@@ -84,26 +85,27 @@ class DBConnection:
 
         if (
             not isinstance(select_value, str) or 
-            not isinstance(from_value, str) or 
-            not isinstance(where_value, str) or 
+            not isinstance(where_values, list) or 
             not isinstance(order_value, str) or 
             not isinstance(values, list)
         ):
             raise ValueError("Invalid input types. Expected strings for select_value, from_value, where_value, order_value and list for values.")
         
         try:
-            if self.find(user_id, from_value, values) is None:
+            if self.find(where_values, values) is None:
                 select_query = f"""
                 SELECT {select_value} 
+                FROM behaviors
+                WHERE {where_values[0]} = %s
                 ORDER BY {order_value};"""
             else:
                 select_query = f"""
                 SELECT {select_value} 
-                FROM {from_value} 
-                WHERE {where_value} = %s 
+                FROM behaviors
+                WHERE {where_values[0]} = %s AND {where_values[1]} = %s
                 ORDER BY {order_value};"""
 
-            self.cursor.execute(select_query, (values,))
+            self.cursor.execute(select_query, (values))
             if fetchall:
                 rows = self.cursor.fetchall()
             else:
@@ -113,42 +115,35 @@ class DBConnection:
             logger.error(f"Error selecting items: {e}")
             self.connection.rollback()
     
-    def insert_items(self, user_id, day, currentPattern, history):
-        if (
-            not isinstance(user_id, str) or 
-            not isinstance(day, str) or
-            not isinstance(currentPattern, str) or
-            not isinstance(history, str)
-        ):
+    def insert_items(self, values):
+        if (not isinstance(values, list)):
             raise ValueError("Invalid input types. Expected strings for user_id, day, currentPattern, and history.")
-        
         try:
             insert_query = f"""
-            INSERT INTO `{user_id}`
-            (day, currentPattern, history)
-            VALUES (%s, %s, %s)
+            INSERT INTO behaviors
+            (userID, day, currentPattern, history)
+            VALUES (%s, %s, %s, %s)
             """
-            self.cursor.execute(insert_query, (day, currentPattern, history))
+            self.cursor.execute(insert_query, (values[0], values[1], values[2], values[3]))
             self.connection.commit()
         except Error as e:
             logger.error(f"Error inserting items: {e}")
             self.connection.rollback()
 
-    def update_items(self, user_id, value_to_update, where_value, values):
+    def update_items(self, value_to_update, where_values, values):
         if (
-            not isinstance(user_id, str) or 
             not isinstance(value_to_update, str) or 
-            not isinstance(where_value, str) or 
+            not isinstance(where_values, list) or 
             not isinstance(values, list)
         ):
             raise ValueError("Invalid input types. Expected strings for user_id, value_to_update, where_value, and new_value.")
         try:
             update_query = f"""
-            UPDATE `{user_id}`
+            UPDATE behaviors
             SET {value_to_update} = %s
-            WHERE {where_value} = %s
+            WHERE {where_values[0]} = %s AND {where_values[1]} = %s
             """
-            self.cursor.execute(update_query, (values[0], values[1]))
+            self.cursor.execute(update_query, (values[0], values[1], values[2]))
             self.connection.commit()
         except Error as e:
             logger.error(f"Error updating items: {e}")
@@ -421,7 +416,8 @@ class UpdateDB(DBConnection):
         cluster.process_node(self.current_obj)
         last_pattern = self.select_items(self.user_id, "*", self.user_id, "day", "day", [self.current_obj.day])
         if last_pattern is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_pattern[1]):
-            self.insert_items(self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours))
+            values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours)]
+            self.insert_items(values)
             return 
         cluster.join_patterns(last_pattern)
         cluster.kmeans()
@@ -432,4 +428,30 @@ class UpdateDB(DBConnection):
             day = self.updated_obj.day
             current_pattern = json.dumps(self.updated_obj.current_pattern)
             history = json.dumps(self.updated_obj.daily_hours)
-            self.update_items(self.user_id, "currentPattern", "day", [current_pattern, day])
+            where_values = ["userID", "day"]
+            self.update_items("currentPattern", where_values, [current_pattern, self.user_id, day])
+        
+    def close(self):
+        self.close()
+        logger.info("MySQL connection is closed")
+
+class FetchNext(DBConnection):
+    def __init__(self, user_id, pattern_obj):
+        self.user_id = user_id
+        self.pattern_obj = pattern_obj
+        self.open()
+        self.create_table(self.user_id)
+
+    def get_next_pattern(self):
+        if self.pattern_obj:
+            values = [self.user_id, self.pattern_obj.day]
+            where_values = ["userID", "day"]
+            last_pattern = self.select_items("currenPattern", where_values, "day", "day", values)
+            if last_pattern is None:
+                return None
+            else:
+                return json.loads(last_pattern[0])
+    
+    def close(self):
+        self.close()
+        logger.info("MySQL connection is closed")
