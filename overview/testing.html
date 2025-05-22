@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link rel="stylesheet" href="testing.css">
+</head>
+<body>
+  <div class="chart">
+    <div class="chart_types">
+      <button onclick="setChartType('bar')">Bars</button>
+      <button onclick="setChartType('line')">Line</button>
+      <button onclick="setChartType('doughnut')">Doughnut</button>
+      <button onclick="setChartType('polarArea')">Polar Area</button>
+      <button onclick="setChartType('radar')">Radar</button>
+    </div>
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <div class="chart_two">
+    <div class="chart_types_two">
+      <button onclick="setChartTypeTwo('bar')">B</button>
+      <button onclick="setChartTypeTwo('line')">L</button>
+      <button onclick="setChartTypeTwo('doughnut')">D</button>
+      <button onclick="setChartTypeTwo('polarArea')">PA</button>
+      <button onclick="setChartTypeTwo('radar')">R</button>
+    </div>
+    <canvas id="myChartTwo"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="testing.js"></script>
+</body>
+</html>
