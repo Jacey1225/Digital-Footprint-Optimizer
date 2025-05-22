@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import mysql.connector
 
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 GEMAPI = load_dotenv()
 
 
@@ -42,22 +43,33 @@ def find_user():
     else:
         return jsonify({"message": "User not found"}), 404
 
-@app.route('/track-behavior', methods=["POST"])
-def track_behavior(self):
+@app.route('/track-behavior', methods=["GET", "POST"])
+def track_behavior():
     data = request.get_json()
     user_id = data.get("user_id")
     daily_hours = data.get("daily_hours")
+    try:
+        behavior = UpdateDB(user_id, daily_hours)
+        logger.info(f"Daily Hours Input: {daily_hours}")
+    except Exception as e:
+        logger.info(f"Error initializing UpdateDB: {e}")
+        return jsonify({"message": "Error initializing UpdateDB"}), 500
 
-    behavior = UpdateDB(user_id, daily_hours)
-    behavior.detect_spikes()
-    behavior.get_current_pattern()
-    behavior.get_updated_pattern()
-    behavior.update_db()
-
+    try:
+        behavior.detect_spikes()
+    except Exception as e:
+        logger.info(f"Error detecting spikes: {e}")
+        return jsonify({"message": "Error detecting spikes"}), 500
+    else:
+        behavior.get_current_pattern()
+        behavior.get_updated_pattern()
+        behavior.update_db()
+        behavior.close()
+    
     return jsonify({"message": "Behavior added successfully"}), 200
 
 @app.route('/fetch-pattern', methods=["POST"])
-def fetch_pattern(self):
+def fetch_pattern():
     data = request.get_json()
     user_id = data.get("user_id")
     pattern_obj = FetchNext(user_id)
@@ -66,7 +78,7 @@ def fetch_pattern(self):
     return jsonify({
         "message": "Tracker initialized successfully",
         "pattern": pattern}), 200
-@app.oute('/weekly-overview', methods={"GET", "POST"})
+@app.route('/weekly-overview', methods={"GET", "POST"})
 def weekly_overview():
     data = request.get_json()
     user_id = data.get("user_id")
