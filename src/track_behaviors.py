@@ -33,7 +33,7 @@ class Node:
     Methods:
         None defined in this class.
     """
-    def __init__(self, user_id, daily_hours, pattern=None, z_threshold=1.8, min_z_threshold=0.65, iterations=10):
+    def __init__(self, user_id, daily_hours, pattern=None, z_threshold=1.8, min_z_threshold=0.65, tolerance=2.5, iterations=10):
         self.user_id = user_id
         self.day = datetime.now().strftime("%A")
         self.daily_hours = daily_hours
@@ -42,6 +42,7 @@ class Node:
         self.z_threshold = z_threshold
         self.min_z_threshold = min_z_threshold
         self.iterations = iterations
+        self.tolerance = tolerance
 
 class DBConnection:
     def __init__(self, db_config=CONFIG):
@@ -78,13 +79,12 @@ class DBConnection:
         Raises:
             mysql.connector.Error: If an error occurs while connecting to the database.
         """
-        if not self.connection.is_connected():
-            try:
-                self.connection = mysql.connector.connect(**self.db_config)
-                self.cursor = self.connection.cursor()
-                logger.info("MySQL connection is opened")
-            except Error as e:
-                logger.error("Error while connecting to MySQL", e)
+        try:
+            self.connection = mysql.connector.connect(**self.db_config)
+            self.cursor = self.connection.cursor()
+            logger.info("MySQL connection is opened")
+        except Error as e:
+            logger.error("Error while connecting to MySQL", e)
     
     def find(self, where_values, values):
         """
@@ -107,6 +107,7 @@ class DBConnection:
             count_query = f"""SELECT * FROM behaviors WHERE {where_values[0]} = %s AND {where_values[1]} = %s;"""
             self.cursor.execute(count_query, (values[0], values[1]))
             count = self.cursor.fetchall()
+            logger.info(f"Count query executed: {count_query} with result: {count}")
             return count
         except Error as e:
             logger.error(f"Error counting rows: {e}")
@@ -307,7 +308,7 @@ class DetectSpikes:
         mean_rate_of_change = abs(self.mean - self.prev_mean)
         std_rate_of_change = abs(self.std - self.prev_std)
         new_threshold = 1.8 * (mean_rate_of_change + std_rate_of_change) / 2
-        self.z_threshold = max(self.z_threshold, new_threshold)
+        self.z_threshold = new_threshold if new_threshold > 0 else self.z_threshold
 
     def z_score(self, new_value):
         if self.std == 0:
@@ -342,6 +343,7 @@ class DetectSpikes:
                             methods like `self.get_std`, `self.z_score`, or 
                             `self.adjust_z_threshold` are not defined.
         """
+        logger.info(f"Detecting Spikes: {self.node.daily_hours}")
         for i in range(len(self.node.daily_hours)):
             new_value = self.node.daily_hours[i]
             self.get_std(new_value)
@@ -431,7 +433,7 @@ class Cluster:
                 index = self.distances(self.data[j])
                 new_clusters[index].append(self.data[j])
 
-            new_centroids = self.update_centroids(self.data)
+            new_centroids = self.update_centroids()
             if new_centroids == self.centroids:
                 break
             else:
@@ -485,7 +487,7 @@ class ClusterSpikes(Cluster):
         else:
             elbow_point = 1
 
-        optimal_k = max(1, min(elbow_point))
+        optimal_k = max(1, int(elbow_point))
 
         self.k = optimal_k
     
@@ -581,7 +583,7 @@ class ClusterPatterns(Cluster):
         deltas = np.diff(distortions)
         second_deltas = np.diff(deltas)
         elbow_point = np.argmax(second_deltas) + 2
-        optimal_k = max(1, min(elbow_point))
+        optimal_k = max(1, int(elbow_point))
 
         return optimal_k
     
@@ -643,6 +645,7 @@ class UpdateDB(DBConnection):
             Closes the database connection and logs the closure.
     """
     def __init__(self, user_id, daily_hours):
+        super().__init__()
         self.user_id = user_id
         self.daily_hours = daily_hours
 
@@ -652,31 +655,44 @@ class UpdateDB(DBConnection):
         self.updated_obj = None
 
         self.open()
-        self.create_table(self.user_id)
+        self.create_table()
 
     def detect_spikes(self):
         spike_detector = DetectSpikes()
         spike_detector.process_node(self.input_obj)
         spike_detector.detect_spikes()
         self.spikes_obj = spike_detector.update_node()
+        logger.info(f"Spikes detected: {self.spikes_obj.current_pattern}")
 
 
     def get_current_pattern(self):
         cluster = ClusterSpikes()
         cluster.process_node(self.spikes_obj)
+        cluster.get_k()
         cluster.kmeans()
         self.current_obj = cluster.update_node()
+        logger.info(f"Current pattern: {self.current_obj.current_pattern}")
     
     def get_updated_pattern(self):
         cluster = ClusterPatterns()
         cluster.process_node(self.current_obj)
-        last_pattern = self.select_items(self.user_id, "*", self.user_id, "day", "day", [self.current_obj.day])
-        if last_pattern is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_pattern[1]):
+        last_pattern = self.select_items("currentPattern", ["userID", "day"], "day", [self.user_id, self.current_obj.day])
+        if last_pattern and last_pattern[0]:
+            last_pattern = json.loads(last_pattern[0][0])
+
+        logger.info(f"Last pattern: {list(last_pattern)} Current pattern: {self.current_obj.current_pattern}")
+        if last_pattern is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_pattern):
             values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours)]
             self.insert_items(values)
             return 
+        
         cluster.join_patterns(last_pattern)
+        logger.info(f"Joined patterns: {cluster.data}")
+
+        cluster.get_k()
         cluster.kmeans()
+        logger.info(f"Updated pattern: {cluster.clusters}")
+
         self.updated_obj = cluster.update_node()
     
     def update_db(self):
@@ -687,10 +703,6 @@ class UpdateDB(DBConnection):
             where_values = ["userID", "day"]
             self.update_items("currentPattern", where_values, [current_pattern, self.user_id, day])
         
-    def close(self):
-        self.close()
-        logger.info("MySQL connection is closed")
-
 class FetchNext(DBConnection):
     """
     A class to fetch the next pattern for a user from the database.
@@ -724,7 +736,3 @@ class FetchNext(DBConnection):
                 return None
             else:
                 return json.loads(last_pattern[0])
-    
-    def close(self):
-        self.close()
-        logger.info("MySQL connection is closed")
