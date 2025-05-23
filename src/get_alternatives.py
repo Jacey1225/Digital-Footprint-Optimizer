@@ -17,9 +17,9 @@ CONFIG = {
     "host": os.environ.get('MYSQL_HOST', 'localhost'),
     "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
     "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'website_tracker'),
+    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
     "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
-}
+} 
 
 class GenerateAlternatives:
     def __init_(self, website_url, data_transfer, green_hosted, db_config=CONFIG, key=API_KEY, user_id=None):
