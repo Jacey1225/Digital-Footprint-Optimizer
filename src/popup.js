@@ -24,7 +24,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+document.getElementById("stopBtn").addEventListener("click", () => {
 
+  chrome.storage.local.set({ tracking_enabled: false });
+  alert("Tracking has been stopped.");
+  document.getElementById("trackBtn").style.display = "block";
+  document.getElementById("stopTrackBtn").style.display = "none";
+})
 document.getElementById("trackBtn").addEventListener("click", () => {
   chrome.storage.local.set({ tracking_enabled: true });
 
