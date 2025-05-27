@@ -79,6 +79,7 @@ class DBConnection:
             self.cursor.execute(count_query, (values[0], values[1]))
             count = self.cursor.fetchall()
             logger.info(f"Count query executed: {count_query} with result: {count}")
+
             return count
         except Error as e:
             logger.error(f"Error counting rows: {e}")
@@ -104,10 +105,11 @@ class DBConnection:
             - The method uses parameterized queries to prevent SQL injection.
             - Logs errors and rolls back the transaction in case of a database error.
         """
+        limit_clause = f"LIMIT {fetchAmount}" if fetchAmount else ""
         if desc:
-            order_value = f"{order_value} DESC LIMIT {fetchAmount}"
+            order_value = f"{order_value} DESC {limit_clause};"
         else:
-            order_value = f"{order_value} ASC LIMIT {fetchAmount}"
+            order_value = f"{order_value} ASC {limit_clause};"
 
         if (
             not isinstance(select_value, str) or 
@@ -117,27 +119,46 @@ class DBConnection:
         ):
             raise ValueError("Invalid input types. Expected strings for select_value, from_value, where_value, order_value and list for values.")
         
-        wheres = "= %s AND ".join(where for where in where_values)
+        wheres = " AND ".join(f"{where} = %s" for where in where_values)
         try:
             if self.find(where_values, values) is None:
                 select_query = f"""
                 SELECT {select_value} 
                 FROM {self.table}
-                WHERE {wheres} = %s
-                ORDER BY {order_value};"""
+                WHERE {wheres}
+                ORDER BY {order_value}"""
             else:
                 select_query = f"""
                 SELECT {select_value} 
                 FROM {self.table}
-                WHERE {wheres}
-                ORDER BY {order_value};"""
+                WHERE {where_values[0]} = %s
+                ORDER BY {order_value}"""
 
+                values = (values[0],)
+
+            logger.info(f"Select query: {select_query} with values: {values}")
             self.cursor.execute(select_query, (values))
             rows = self.cursor.fetchall()
             
             return rows
         except Error as e:
             logger.error(f"Error selecting items: {e}")
+            logger.error(f"Select query: {select_query}")
+        
+    def special_select(self, select_value, where_value, value):
+        select_query = f"""
+        SELECT {select_value}
+        FROM (
+            SELECT {select_value},
+            SUM(shift) OVER (ORDER BY id DESC) AS cumulative_sum
+        FROM {self.table})
+        subquery 
+        WHERE {where_value} = %s AND cumulative_sum = 0;
+        """
+        self.cursor.execute(select_query, (value,))
+        rows = self.cursor.fetchall()
+        logger.info(f"Special select query executed: {select_query} with value: {value}")
+        return rows
 
     def insert_items(self, where_values, values):
         """Inserts a new record into the 'behaviors' table in the database.
@@ -162,7 +183,7 @@ class DBConnection:
             columns = ", ".join(where_values)
             placeholders = ", ".join(["%s"] * len(values))
             insert_query = f"""
-            INSERT INTO {self.table}
+            INSERT IGNORE INTO {self.table}
             ({columns})
             VALUES ({placeholders});
             """
@@ -172,7 +193,7 @@ class DBConnection:
             logger.error(f"Error inserting items: {e}")
             self.connection.rollback()
 
-    def update_items(self, value_to_update, where_values, values):
+    def update_items(self, values_to_update, where_values, values):
         """Updates a specific field in the 'behaviors' table based on given conditions.
 
         Args:
@@ -190,15 +211,16 @@ class DBConnection:
             - It ensures the database changes are committed if the operation is successful.
             - In case of an error, the transaction is rolled back and the error is logged."""
         if (
-            not isinstance(value_to_update, str) or 
+            not isinstance(values_to_update, list) or 
             not isinstance(where_values, list) or 
             not isinstance(values, list)
         ):
             raise ValueError("Invalid input types. Expected strings for user_id, value_to_update, where_value, and new_value.")
+        values = " AND ".join(f"{value} = %s" for value in values_to_update)
         try:
             update_query = f"""
             UPDATE {self.table}
-            SET {value_to_update} = %s
+            SET {values}
             WHERE {where_values[0]} = %s AND {where_values[1]} = %s;
             """
             self.cursor.execute(update_query, (values[0], values[1], values[2]))

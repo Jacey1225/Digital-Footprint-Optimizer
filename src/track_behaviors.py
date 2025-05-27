@@ -197,7 +197,7 @@ class Cluster:
             return {0: self.data}
         
         self.centroids = random.sample(self.data, self.k)
-        self.centroids = [int(centroid) - 1 for centroid in self.centroids]
+        self.centroids = [centroid for centroid in self.centroids]
 
         self.clusters = {i: [] for i in range(len(self.centroids))}
         for i in range(self.iterations):
@@ -292,6 +292,7 @@ class ClusterSpikes(Cluster):
 class ClusterPatterns(Cluster):
     def __init__(self):
         super().__init__()
+        self.shift = False
 
     def join_patterns(self, pattern_to_join):
         """
@@ -306,7 +307,7 @@ class ClusterPatterns(Cluster):
         joined_patterns = self.data.copy() + pattern_to_join
         self.data = joined_patterns
     
-    def evaluate_similarity(self, pattern1, pattern2):
+    def evaluate_similarity(self, target_pattern, others):
         """
         Evaluates the similarity between two patterns based on a tolerance threshold.
         Args:
@@ -320,17 +321,25 @@ class ClusterPatterns(Cluster):
               allowable average difference between corresponding elements of the patterns.
             - If either pattern1 or pattern2 is empty or None, the method returns False.
         """
-        if not pattern1 or not pattern2:
+        if not target_pattern or not others:
             return False
-
-        for p1, p2 in zip(pattern1, pattern2):
-            d1 = abs(p1[0] - p2[0])
-            d2 = abs(p1[1] - p2[1])
-            average_diff = (d1 + d2) / 2
-            if average_diff > self.tolerance:
-                return False
         
-        return True
+        sims = 0
+        for target in target_pattern:
+            for other in others:
+                d1 = abs(target[0] - other[0])
+                d2 = abs(target[1] - other[1])
+                average_diff = (d1 + d2) // 2
+                if average_diff < self.tolerance:
+                    sims += 1
+                    break
+        
+        if sims >= (len(target_pattern) // 2):
+            self.shift = 0
+            return True
+        
+        self.shift = 1
+        return False
 
     def get_k(self):
         """
@@ -358,7 +367,7 @@ class ClusterPatterns(Cluster):
         elbow_point = np.argmax(second_deltas) + 2
         optimal_k = max(1, int(elbow_point))
 
-        return optimal_k
+        self.k = optimal_k
     
     def distances(self, target):
         distances = []
@@ -378,10 +387,12 @@ class ClusterPatterns(Cluster):
                 updated_points.append([sum(point[0] for point in points) // len(points), sum(point[1] for point in points) // len(points)])
             else:
                 updated_points.append(random.choice(self.data))
-        return updated_points
+
+        return updated_points        
     
     def update_node(self):
         pattern = []
+        logger.info(f"Proceessing Clusters for DB: {self.clusters}")
 
         for cluster_id, points in self.clusters.items():
             if points:
@@ -393,6 +404,7 @@ class ClusterPatterns(Cluster):
         return Node(self.user_id, self.data, pattern)
 
 class UpdateDB(DBConnection):
+
     """
     A class to manage and update user behavior patterns in a database.
     Attributes:
@@ -448,23 +460,24 @@ class UpdateDB(DBConnection):
     def get_updated_pattern(self):
         cluster = ClusterPatterns()
         cluster.process_node(self.current_obj)
-        last_pattern = self.select_items("currentPattern", ["userID", "day"], "day", [self.user_id, self.current_obj.day])
-        if last_pattern and last_pattern[0]:
-            last_pattern = json.loads(last_pattern[0][0])
 
-        logger.info(f"Last pattern: {list(last_pattern)} Current pattern: {self.current_obj.current_pattern}")
-        if last_pattern is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_pattern):
-            where_values = ["userID", "day", "currentPattern", "history"]
-            values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours)]
+        last_patterns = self.special_select("currentPattern", "userID", self.user_id)
+        if last_patterns:
+            patterns = []
+            for pattern in last_patterns:
+                patterns.extend(json.loads(pattern[0][0]))
+
+        if last_patterns is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_patterns):
+            where_values = ["userID", "day", "currentPattern", "history", "shift"]
+            values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), 0]
             self.insert_items(where_values, values)
+            logger.info(f"Inserted new pattern: {self.current_obj.current_pattern}")
             return 
         
-        cluster.join_patterns(last_pattern)
-        logger.info(f"Joined patterns: {cluster.data}")
+        cluster.join_patterns(last_patterns)
 
         cluster.get_k()
         cluster.kmeans()
-        logger.info(f"Updated pattern: {cluster.clusters}")
 
         self.updated_obj = cluster.update_node()
     
@@ -474,7 +487,12 @@ class UpdateDB(DBConnection):
             current_pattern = json.dumps(self.updated_obj.current_pattern)
             history = json.dumps(self.updated_obj.daily_hours)
             where_values = ["userID", "day"]
+            values_to_update = ["currentPattern", "history", "shift"]
+            values = []
             self.update_items("currentPattern", where_values, [current_pattern, self.user_id, day])
+            logger.info(f"Updated pattern in DB: {self.updated_obj.current_pattern}")
+        else:
+            logger.info("No updated pattern to save in DB.")
         
 class FetchNext(DBConnection):
     """
@@ -494,18 +512,18 @@ class FetchNext(DBConnection):
         close():
             Closes the database connection and logs the closure.
     """
-    def __init__(self, user_id, pattern_obj):
+    def __init__(self, user_id):
+        super().__init__("behaviors")
         self.user_id = user_id
-        self.pattern_obj = pattern_obj
+        self.day = datetime.now().strftime("%A")
         self.open()
-        self.create_table(self.user_id)
 
     def get_next_pattern(self):
-        if self.pattern_obj:
-            values = [self.user_id, self.pattern_obj.day]
-            where_values = ["userID", "day"]
-            last_pattern = self.select_items("currenPattern", where_values, "day", values, 1)
-            if last_pattern is None:
-                return None
-            else:
-                return json.loads(last_pattern[0])
+        values = [self.user_id, self.day]
+        where_values = ["userID", "day"]
+        last_pattern = self.select_items("currentPattern", where_values, "day", values, 1)
+        if last_pattern is None:
+            return None
+        else:
+            logger.info(f"Last pattern: {last_pattern}")
+            return json.loads(last_pattern[0][0])
