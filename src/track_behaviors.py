@@ -29,7 +29,7 @@ class Node:
     Methods:
         None defined in this class.
     """
-    def __init__(self, user_id, daily_hours, pattern=None, z_threshold=1.8, min_z_threshold=0.65, tolerance=2.5, iterations=10):
+    def __init__(self, user_id, daily_hours, pattern=None, shift=0, z_threshold=1.8, min_z_threshold=0.65, tolerance=2.5, iterations=10):
         self.user_id = user_id
         self.day = datetime.now().strftime("%A")
         self.daily_hours = daily_hours
@@ -39,6 +39,8 @@ class Node:
         self.min_z_threshold = min_z_threshold
         self.iterations = iterations
         self.tolerance = tolerance
+
+        self.shift = shift
 class DetectSpikes:
     def __init__(self):
         self.activity_spikes = []
@@ -152,6 +154,8 @@ class Cluster:
         self.iterations = None
         self.tolerance = None
 
+        self.shift = 0
+
     def process_node(self, node):
         if node:
             self.user_id = node.user_id
@@ -160,6 +164,7 @@ class Cluster:
             self.history = node.daily_hours
             self.iterations = node.iterations
             self.tolerance = node.tolerance
+            self.shift = node.shift
         else:
             raise ValueError("Node is None. Cannot process.")
     
@@ -292,7 +297,6 @@ class ClusterSpikes(Cluster):
 class ClusterPatterns(Cluster):
     def __init__(self):
         super().__init__()
-        self.shift = False
 
     def join_patterns(self, pattern_to_join):
         """
@@ -401,7 +405,7 @@ class ClusterPatterns(Cluster):
                 pattern.append([average_start, average_end])
             else:
                 continue
-        return Node(self.user_id, self.data, pattern)
+        return Node(self.user_id, self.data, pattern, self.shift)
 
 class UpdateDB(DBConnection):
 
@@ -460,36 +464,51 @@ class UpdateDB(DBConnection):
     def get_updated_pattern(self):
         cluster = ClusterPatterns()
         cluster.process_node(self.current_obj)
+        where_values = ["userID", "day", "currentPattern", "history", "shift"]
+        values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), 0]
+                
+        last_patterns = self.select_items("*", ["userID", "day"], "day", [self.user_id, self.current_obj.day], 100)
+        logger.info(f"Last patterns fetched: {last_patterns}")
 
-        last_patterns = self.special_select("currentPattern", "userID", self.user_id)
+        
         if last_patterns:
             patterns = []
             for pattern in last_patterns:
-                patterns.extend(json.loads(pattern[0][0]))
+                row = pattern
+                if row[5] == 1:
+                    logger.info(f"Pattern is shifted, ending. {row[5]}")
+                    break
+                
+                logger.info(f"Adding pattern: {row[3]}")
+                patterns.extend(json.loads(row[3]))
+            
+            if not cluster.evaluate_similarity(self.current_obj.current_pattern, patterns):
+                logger.info(f"Current pattern {self.current_obj.current_pattern} is not similar to last patterns.")
+                values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), cluster.shift]
+                self.insert_items(where_values, values)
+            
+            cluster.join_patterns(patterns)
 
-        if last_patterns is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_patterns):
-            where_values = ["userID", "day", "currentPattern", "history", "shift"]
-            values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), 0]
+            cluster.get_k()
+            cluster.kmeans()
+
+            self.updated_obj = cluster.update_node()
+            logger.info(f"Updated pattern: {self.updated_obj.current_pattern}")
+        else:
             self.insert_items(where_values, values)
-            logger.info(f"Inserted new pattern: {self.current_obj.current_pattern}")
-            return 
-        
-        cluster.join_patterns(last_patterns)
-
-        cluster.get_k()
-        cluster.kmeans()
-
-        self.updated_obj = cluster.update_node()
+            logger.info(f"No last patterns found, inserting {self.current_obj.current_pattern} into DB.")
     
     def update_db(self):
         if self.updated_obj:
             day = self.updated_obj.day
             current_pattern = json.dumps(self.updated_obj.current_pattern)
             history = json.dumps(self.updated_obj.daily_hours)
+            shift = self.updated_obj.shift
+
             where_values = ["userID", "day"]
-            values_to_update = ["currentPattern", "history", "shift"]
-            values = []
-            self.update_items("currentPattern", where_values, [current_pattern, self.user_id, day])
+            values_to_update = ["currentPattern", "shift"]
+            values = [current_pattern, shift, self.user_id, day]
+            self.update_items(values_to_update, where_values, [current_pattern, self.user_id, day])
             logger.info(f"Updated pattern in DB: {self.updated_obj.current_pattern}")
         else:
             logger.info("No updated pattern to save in DB.")

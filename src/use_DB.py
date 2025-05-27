@@ -74,6 +74,7 @@ class DBConnection:
             Error: If an error occurs during the execution of the SQL query, it is logged, and the
                    database transaction is rolled back.
         """
+        self.open()
         try:
             count_query = f"""SELECT * FROM {self.table} WHERE {where_values[0]} = %s AND {where_values[1]} = %s;"""
             self.cursor.execute(count_query, (values[0], values[1]))
@@ -83,6 +84,8 @@ class DBConnection:
             return count
         except Error as e:
             logger.error(f"Error counting rows: {e}")
+        
+        self.close()
             
     def select_items(self, select_value, where_values, order_value, values, fetchAmount=1, desc=True):
         """
@@ -105,12 +108,13 @@ class DBConnection:
             - The method uses parameterized queries to prevent SQL injection.
             - Logs errors and rolls back the transaction in case of a database error.
         """
+        self.open()
+
         limit_clause = f"LIMIT {fetchAmount}" if fetchAmount else ""
         if desc:
-            order_value = f"{order_value} DESC {limit_clause};"
+            order_clause = "DESC;"
         else:
-            order_value = f"{order_value} ASC {limit_clause};"
-
+            order_clause = "ASC;"
         if (
             not isinstance(select_value, str) or 
             not isinstance(where_values, list) or 
@@ -121,20 +125,20 @@ class DBConnection:
         
         wheres = " AND ".join(f"{where} = %s" for where in where_values)
         try:
-            if self.find(where_values, values) is None:
+            if self.find(where_values, values) is not None:
                 select_query = f"""
                 SELECT {select_value} 
                 FROM {self.table}
                 WHERE {wheres}
-                ORDER BY {order_value}"""
+                ORDER BY FIELD({order_value}, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') {order_clause}
+                {limit_clause}"""
             else:
                 select_query = f"""
                 SELECT {select_value} 
                 FROM {self.table}
                 WHERE {where_values[0]} = %s
-                ORDER BY {order_value}"""
-
-                values = (values[0],)
+                ORDER BY FIELD({order_value}, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') {order_clause}
+                {limit_clause}"""
 
             logger.info(f"Select query: {select_query} with values: {values}")
             self.cursor.execute(select_query, (values))
@@ -145,20 +149,7 @@ class DBConnection:
             logger.error(f"Error selecting items: {e}")
             logger.error(f"Select query: {select_query}")
         
-    def special_select(self, select_value, where_value, value):
-        select_query = f"""
-        SELECT {select_value}
-        FROM (
-            SELECT {select_value},
-            SUM(shift) OVER (ORDER BY id DESC) AS cumulative_sum
-        FROM {self.table})
-        subquery 
-        WHERE {where_value} = %s AND cumulative_sum = 0;
-        """
-        self.cursor.execute(select_query, (value,))
-        rows = self.cursor.fetchall()
-        logger.info(f"Special select query executed: {select_query} with value: {value}")
-        return rows
+        self.close()
 
     def insert_items(self, where_values, values):
         """Inserts a new record into the 'behaviors' table in the database.
@@ -177,6 +168,8 @@ class DBConnection:
         Notes:
             - This method assumes that the database connection and cursor are already initialized.
             - The method uses parameterized queries to prevent SQL injection."""
+        self.open()
+
         if (not isinstance(values, list)):
             raise ValueError("Invalid input types. Expected strings for user_id, day, currentPattern, and history.")
         try:
@@ -187,11 +180,15 @@ class DBConnection:
             ({columns})
             VALUES ({placeholders});
             """
-            self.cursor.execute(insert_query, (values[0], values[1], values[2], values[3]))
+
+            logger.info(f"Insert query: {insert_query} with values: {values}")
+            self.cursor.execute(insert_query, values)
             self.connection.commit()
         except Error as e:
             logger.error(f"Error inserting items: {e}")
             self.connection.rollback()
+        
+        self.close()
 
     def update_items(self, values_to_update, where_values, values):
         """Updates a specific field in the 'behaviors' table based on given conditions.
@@ -210,23 +207,27 @@ class DBConnection:
             - The method constructs an SQL query dynamically using the provided column names and values.
             - It ensures the database changes are committed if the operation is successful.
             - In case of an error, the transaction is rolled back and the error is logged."""
+        self.open()
+
         if (
             not isinstance(values_to_update, list) or 
             not isinstance(where_values, list) or 
             not isinstance(values, list)
         ):
             raise ValueError("Invalid input types. Expected strings for user_id, value_to_update, where_value, and new_value.")
-        values = " AND ".join(f"{value} = %s" for value in values_to_update)
+        sets = ", ".join(f"{value} = %s" for value in values_to_update)
+        wheres = " AND ".join(f"{where} = %s" for where in where_values)
         try:
             update_query = f"""
             UPDATE {self.table}
-            SET {values}
-            WHERE {where_values[0]} = %s AND {where_values[1]} = %s;
+            SET {sets}
+            WHERE {wheres};
             """
-            self.cursor.execute(update_query, (values[0], values[1], values[2]))
+            self.cursor.execute(update_query, (values))
             self.connection.commit()
         except Error as e:
             logger.error(f"Error updating items: {e}")
             self.connection.rollback()
         
+        self.close()
     
