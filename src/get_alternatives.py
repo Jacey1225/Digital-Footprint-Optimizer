@@ -8,27 +8,30 @@ import dotenv
 import logging
 import requests
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.use_DB import DBConnection
+
 #API key used for Gemini services --> .env
-env = dotenv.load_dotenv() 
-API_KEY = env["API_KEY"]
+dotenv.load_dotenv() 
+API_KEY = os.getenv("API_KEY")
 logger = logging.getLogger(__name__)
 
 CONFIG = {
     "host": os.environ.get('MYSQL_HOST', 'localhost'),
     "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
     "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'website_tracker'),
+    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
     "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
-}
+} 
 
-class GenerateAlternatives:
-    def __init_(self, website_url, data_transfer, green_hosted, db_config=CONFIG, key=API_KEY, user_id=None):
+class GenerateAlternatives(DBConnection):
+    def __init_(self, website_url, data_transfer, db_config=CONFIG, key=API_KEY, user_id=None):
         self.url = website_url
         self.client = genai.Client(key)
         self.user_id = user_id
         self.db_config = db_config
         self.data_transfer = data_transfer
-        self.green_hosted = green_hosted
 
         self.domains = [".com", ".org", ".net", ".io", ".co", ".be", ".uk", ".de", ".fr", ".jp", ".au", ".ca", ".it", ".es", ".ru", ".ch", ".nl", ".se", ".no", ".fi", ".dk"]
 
@@ -40,17 +43,8 @@ class GenerateAlternatives:
         except FileNotFoundError as e:
             logger.info("Error while loading green URLs", e)
             raise
-        try:
-            self.connection = mysql.connector.connect(
-                host = self.db_config["host"],
-                user = self.db_config["user"],
-                password = self.db_config["password"],
-                database = self.db_config["database"]
-            )
-            self.cursor = self.connection.cursor()
-        except Error as e:
-            logger.info("Error while connecting to MySQL", e)
-                        
+        super().__init__("websites")
+
     def calculate_total_emissions(self, green_hosted=None, data_transfer=None) -> float:
         """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estiamtes of intensities on different segments and summing them out
         Args:
@@ -82,6 +76,8 @@ class GenerateAlternatives:
 
         # sum out all segments to get the total emissions gathered
         total_emissions = emissions_datacenter + emisions_network + emissions_device
+
+        logger.info(f"Total emissions calculated: {total_emissions} kg CO2e for {data_transfer_gb} GB of data transfer")
         return total_emissions
     
     def fetch_matches(self):
@@ -91,15 +87,17 @@ class GenerateAlternatives:
         Retuns:
             list: row the current website was found
         """
-        query = f"SELECT * FROM {self.user_id} WHERE url = %s OR web_suggested_1 = %s OR web_suggested_2 = %s OR web_suggested_3 = %s"
-        self.cursor.execute(query, (self.url, self.url, self.url, self.url))    
-        result = self.cursor.fetchone()
+        select_value = "*"
+        where_values = ["userID", "url"]
+        values = [self.user_id, self.url]
+        self.open()
+        rows = self.select_items(select_value, where_values, values, fetchAmount=1)
+        self.close()
 
-        if result:
-            return result
-        else:
+        logger.info(f"Rows fetched for user {self.user_id} and URL {self.url}: {rows}")
+        if not rows:
             self.fetch_ai_response()
-    def store_website(self, suggestions, date):
+    def store_website(self, suggestions):
         """Writes the website data into the SQL database for the respective user. This data will be used to quick-fetch suggestions for the user's current website
         --> reduces digital footprint/carbon emissions
 
@@ -109,10 +107,9 @@ class GenerateAlternatives:
             date (string): date the website was written to the database --> used to determine how old the data is
         """
         data_transfer = self.calculate_total_emissions()
-        sql = f"INSERT INTO {self.user_id} (user, url, data_transfer, web_suggested_1, web_suggested_2, web_suggested_3, date) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-        val = (self.user_id, self.url, data_transfer, suggestions[0], suggestions[1], suggestions[2], date)
-        self.cursor.execute(sql, val)
-        self.connection.commit()
+        where_values = ["userID"]
+        values = [self.user_id, self.url, data_transfer, suggestions[0], suggestions[1], suggestions[2]]
+        self.insert_items(where_values, values)
 
     def is_green(self, url):
         """Determines of the current URL exists in the gren URL database. Idf it does,
@@ -167,7 +164,7 @@ class GenerateAlternatives:
         Returns: 
             list: set of suggested websites that are similar to the user's current website
         """
-        prompt = f"Generate an exact count of 8 alternative websites that are very close in similarity to this provided website: {self.url}. Verify that the websites you generate match the overall message and content. Avoid any unnecessary text."
+        prompt = f"Generate an exact count of 8 alternative websites that are very similar in terms of content category to this provided website: {self.url}. Verify that the websites you generate match the overall message and content. Avoid any unnecessary text."
         date = time.strftime("%Y-%m-%d")
         try:
             response = self.client.generate(prompt=prompt)
@@ -175,8 +172,10 @@ class GenerateAlternatives:
 
             suggestions = []
             for token in tokens:
-                if token in self.domains:
-                    suggestions.append(token)
+                for domain in self.domains:
+                    if domain in token:
+                        suggestions.append(token)
+
             self.store_website(suggestions, date)
         except Exception as e:
             logger.info("Error while generating AI response", e)

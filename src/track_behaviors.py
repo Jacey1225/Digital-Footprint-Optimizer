@@ -7,14 +7,10 @@ from mysql.connector import Error
 from sklearn.cluster import KMeans
 import random
 from datetime import datetime
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-CONFIG = {
-    "host": os.environ.get('MYSQL_HOST', 'localhost'),
-    "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
-    "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
-}
-
+from src.use_DB import DBConnection
 logger = logging.getLogger(__name__)
 
 class Node:
@@ -33,7 +29,7 @@ class Node:
     Methods:
         None defined in this class.
     """
-    def __init__(self, user_id, daily_hours, pattern=None, z_threshold=1.8, min_z_threshold=0.65, tolerance=2.5, iterations=10):
+    def __init__(self, user_id, daily_hours, pattern=None, shift=0, z_threshold=1.8, min_z_threshold=0.65, tolerance=2.5, iterations=10):
         self.user_id = user_id
         self.day = datetime.now().strftime("%A")
         self.daily_hours = daily_hours
@@ -44,228 +40,7 @@ class Node:
         self.iterations = iterations
         self.tolerance = tolerance
 
-class DBConnection:
-    def __init__(self, db_config=CONFIG):
-        self.db_config = db_config
-        try:
-            self.connection = mysql.connector.connect(**self.db_config)
-            self.cursor = self.connection.cursor()
-        except Exception as e:
-            logger.error("Error while connecting to MySQL: %s", e)
-            
-        
-    def close(self):
-        """
-        Closes the database connection and cursor if the connection is active.
-
-        This method checks if the database connection is currently active. If so, 
-        it closes the cursor and the connection, and logs a message indicating 
-        that the MySQL connection has been closed.
-        """
-        if self.connection.is_connected():
-            self.cursor.close()
-            self.connection.close()
-            logger.info("MySQL connection is closed")
-    
-    def open(self):
-        """
-        Opens a connection to the MySQL database if it is not already connected.
-
-        This method checks the current connection status and attempts to establish
-        a connection to the database using the provided configuration. If the connection
-        is successful, it initializes the cursor for executing queries. Logs an error
-        message if the connection fails.
-
-        Raises:
-            mysql.connector.Error: If an error occurs while connecting to the database.
-        """
-        try:
-            self.connection = mysql.connector.connect(**self.db_config)
-            self.cursor = self.connection.cursor()
-            logger.info("MySQL connection is opened")
-        except Error as e:
-            logger.error("Error while connecting to MySQL", e)
-    
-    def find(self, where_values, values):
-        """
-        Executes a SQL query to find rows in the 'behaviors' table that match the specified conditions.
-
-        Args:
-            where_values (list): A list of column names to be used in the WHERE clause of the SQL query.
-                                 The list must contain exactly two column names.
-            values (list): A list of values corresponding to the columns specified in `where_values`.
-                           The list must contain exactly two values.
-
-        Returns:
-            list: A list of rows that match the specified conditions, retrieved from the database.
-
-        Raises:
-            Error: If an error occurs during the execution of the SQL query, it is logged, and the
-                   database transaction is rolled back.
-        """
-        try:
-            count_query = f"""SELECT * FROM behaviors WHERE {where_values[0]} = %s AND {where_values[1]} = %s;"""
-            self.cursor.execute(count_query, (values[0], values[1]))
-            count = self.cursor.fetchall()
-            logger.info(f"Count query executed: {count_query} with result: {count}")
-            return count
-        except Error as e:
-            logger.error(f"Error counting rows: {e}")
-            self.connection.rollback()
-
-    def create_table(self):
-        """
-        Creates a table named 'behaviors' in the database if it does not already exist.
-
-        The table contains the following columns:
-            - userID: A VARCHAR(255) that serves as the primary key.
-            - day: A VARCHAR(255) representing the day.
-            - currentPattern: A TEXT field storing the current behavior pattern.
-            - history: A TEXT field storing the history of behaviors.
-
-        Commits the changes to the database if the table is created successfully.
-        Rolls back the transaction and logs an error if an exception occurs.
-
-        Raises:
-            Error: If there is an issue executing the SQL query or committing the transaction.
-        """
-        try:
-            table_query = f"""CREATE TABLE IF NOT EXISTS
-            behaviors (
-                userID VARCHAR(255) PRIMARY KEY,
-                day VARCHAR(255),
-                currentPattern TEXT,
-                history TEXT);"""
-            self.cursor.execute(table_query)
-            self.connection.commit()
-        except Error as e:
-            logger.error(f"Error creating table: {e}")
-            self.connection.rollback()
-    
-    def select_items(self, select_value, where_values, order_value, values, fetchall=True, desc=True):
-        """
-        Selects items from the 'behaviors' table in the database based on the provided parameters.
-        Args:
-            select_value (str): The column to select from the table.
-            where_values (list): A list of column names to use in the WHERE clause.
-            order_value (str): The column to use for ordering the results.
-            values (list): A list of values corresponding to the WHERE clause columns.
-            fetchall (bool, optional): If True, fetch all rows; if False, fetch a single row. Defaults to True.
-            desc (bool, optional): If True, order results in descending order; if False, order in ascending order. Defaults to True.
-        Returns:
-            list or tuple: The fetched rows from the database. Returns a list if fetchall is True, otherwise a single tuple.
-        Raises:
-            ValueError: If the input types for the arguments are invalid.
-            Error: If there is an issue executing the SQL query.
-        Notes:
-            - The method constructs a SQL query dynamically based on the input parameters.
-            - If `where_values` contains more than one column, the query will include an additional condition in the WHERE clause.
-            - The method uses parameterized queries to prevent SQL injection.
-            - Logs errors and rolls back the transaction in case of a database error.
-        """
-        if desc:
-            order_value = f"{order_value} DESC LIMIT 1"
-        else:
-            order_value = f"{order_value} ASC LIMIT 1"
-
-        if (
-            not isinstance(select_value, str) or 
-            not isinstance(where_values, list) or 
-            not isinstance(order_value, str) or 
-            not isinstance(values, list)
-        ):
-            raise ValueError("Invalid input types. Expected strings for select_value, from_value, where_value, order_value and list for values.")
-        
-        try:
-            if self.find(where_values, values) is None:
-                select_query = f"""
-                SELECT {select_value} 
-                FROM behaviors
-                WHERE {where_values[0]} = %s
-                ORDER BY {order_value};"""
-            else:
-                select_query = f"""
-                SELECT {select_value} 
-                FROM behaviors
-                WHERE {where_values[0]} = %s AND {where_values[1]} = %s
-                ORDER BY {order_value};"""
-
-            self.cursor.execute(select_query, (values))
-            if fetchall:
-                rows = self.cursor.fetchall()
-            else:
-                rows = self.cursor.fetchone()
-            return rows
-        except Error as e:
-            logger.error(f"Error selecting items: {e}")
-            self.connection.rollback()
-    
-    def insert_items(self, values):
-        """Inserts a new record into the 'behaviors' table in the database.
-
-        Args:
-            values (list): A list containing four elements:
-                - userID (str): The ID of the user.
-                - day (str): The day associated with the behavior.
-                - currentPattern (str): The current pattern of behavior.
-                - history (str): The history of behaviors.
-
-        Raises:
-            ValueError: If the input 'values' is not a list.
-            Error: If there is an issue executing the database query, logs the error and rolls back the transaction.
-
-        Notes:
-            - This method assumes that the database connection and cursor are already initialized.
-            - The method uses parameterized queries to prevent SQL injection."""
-        if (not isinstance(values, list)):
-            raise ValueError("Invalid input types. Expected strings for user_id, day, currentPattern, and history.")
-        try:
-            insert_query = f"""
-            INSERT INTO behaviors
-            (userID, day, currentPattern, history)
-            VALUES (%s, %s, %s, %s);
-            """
-            self.cursor.execute(insert_query, (values[0], values[1], values[2], values[3]))
-            self.connection.commit()
-        except Error as e:
-            logger.error(f"Error inserting items: {e}")
-            self.connection.rollback()
-
-    def update_items(self, value_to_update, where_values, values):
-        """Updates a specific field in the 'behaviors' table based on given conditions.
-
-        Args:
-            value_to_update (str): The column name to update.
-            where_values (list): A list containing two column names to use in the WHERE clause.
-            values (list): A list containing three values - the new value for the column to update 
-                           and the two values to match in the WHERE clause.
-
-        Raises:
-            ValueError: If the input types are not as expected.
-            Error: If an error occurs during the database operation.
-
-        Notes:
-            - The method constructs an SQL query dynamically using the provided column names and values.
-            - It ensures the database changes are committed if the operation is successful.
-            - In case of an error, the transaction is rolled back and the error is logged."""
-        if (
-            not isinstance(value_to_update, str) or 
-            not isinstance(where_values, list) or 
-            not isinstance(values, list)
-        ):
-            raise ValueError("Invalid input types. Expected strings for user_id, value_to_update, where_value, and new_value.")
-        try:
-            update_query = f"""
-            UPDATE behaviors
-            SET {value_to_update} = %s
-            WHERE {where_values[0]} = %s AND {where_values[1]} = %s;
-            """
-            self.cursor.execute(update_query, (values[0], values[1], values[2]))
-            self.connection.commit()
-        except Error as e:
-            logger.error(f"Error updating items: {e}")
-            self.connection.rollback()
-
+        self.shift = shift
 class DetectSpikes:
     def __init__(self):
         self.activity_spikes = []
@@ -379,6 +154,8 @@ class Cluster:
         self.iterations = None
         self.tolerance = None
 
+        self.shift = 0
+
     def process_node(self, node):
         if node:
             self.user_id = node.user_id
@@ -387,6 +164,7 @@ class Cluster:
             self.history = node.daily_hours
             self.iterations = node.iterations
             self.tolerance = node.tolerance
+            self.shift = node.shift
         else:
             raise ValueError("Node is None. Cannot process.")
     
@@ -424,7 +202,7 @@ class Cluster:
             return {0: self.data}
         
         self.centroids = random.sample(self.data, self.k)
-        self.centroids = [int(centroid) - 1 for centroid in self.centroids]
+        self.centroids = [centroid for centroid in self.centroids]
 
         self.clusters = {i: [] for i in range(len(self.centroids))}
         for i in range(self.iterations):
@@ -533,7 +311,7 @@ class ClusterPatterns(Cluster):
         joined_patterns = self.data.copy() + pattern_to_join
         self.data = joined_patterns
     
-    def evaluate_similarity(self, pattern1, pattern2):
+    def evaluate_similarity(self, target_pattern, others):
         """
         Evaluates the similarity between two patterns based on a tolerance threshold.
         Args:
@@ -547,17 +325,25 @@ class ClusterPatterns(Cluster):
               allowable average difference between corresponding elements of the patterns.
             - If either pattern1 or pattern2 is empty or None, the method returns False.
         """
-        if not pattern1 or not pattern2:
+        if not target_pattern or not others:
             return False
-
-        for p1, p2 in zip(pattern1, pattern2):
-            d1 = abs(p1[0] - p2[0])
-            d2 = abs(p1[1] - p2[1])
-            average_diff = (d1 + d2) / 2
-            if average_diff > self.tolerance:
-                return False
         
-        return True
+        sims = 0
+        for target in target_pattern:
+            for other in others:
+                d1 = abs(target[0] - other[0])
+                d2 = abs(target[1] - other[1])
+                average_diff = (d1 + d2) // 2
+                if average_diff < self.tolerance:
+                    sims += 1
+                    break
+        
+        if sims >= (len(target_pattern) // 2):
+            self.shift = 0
+            return True
+        
+        self.shift = 1
+        return False
 
     def get_k(self):
         """
@@ -585,7 +371,7 @@ class ClusterPatterns(Cluster):
         elbow_point = np.argmax(second_deltas) + 2
         optimal_k = max(1, int(elbow_point))
 
-        return optimal_k
+        self.k = optimal_k
     
     def distances(self, target):
         distances = []
@@ -605,10 +391,12 @@ class ClusterPatterns(Cluster):
                 updated_points.append([sum(point[0] for point in points) // len(points), sum(point[1] for point in points) // len(points)])
             else:
                 updated_points.append(random.choice(self.data))
-        return updated_points
+
+        return updated_points        
     
     def update_node(self):
         pattern = []
+        logger.info(f"Proceessing Clusters for DB: {self.clusters}")
 
         for cluster_id, points in self.clusters.items():
             if points:
@@ -617,9 +405,10 @@ class ClusterPatterns(Cluster):
                 pattern.append([average_start, average_end])
             else:
                 continue
-        return Node(self.user_id, self.data, pattern)
+        return Node(self.user_id, self.data, pattern, self.shift)
 
 class UpdateDB(DBConnection):
+
     """
     A class to manage and update user behavior patterns in a database.
     Attributes:
@@ -645,7 +434,7 @@ class UpdateDB(DBConnection):
             Closes the database connection and logs the closure.
     """
     def __init__(self, user_id, daily_hours):
-        super().__init__()
+        super().__init__("behaviors")
         self.user_id = user_id
         self.daily_hours = daily_hours
 
@@ -655,7 +444,6 @@ class UpdateDB(DBConnection):
         self.updated_obj = None
 
         self.open()
-        self.create_table()
 
     def detect_spikes(self):
         spike_detector = DetectSpikes()
@@ -676,32 +464,54 @@ class UpdateDB(DBConnection):
     def get_updated_pattern(self):
         cluster = ClusterPatterns()
         cluster.process_node(self.current_obj)
-        last_pattern = self.select_items("currentPattern", ["userID", "day"], "day", [self.user_id, self.current_obj.day])
-        if last_pattern and last_pattern[0]:
-            last_pattern = json.loads(last_pattern[0][0])
+        where_values = ["userID", "day", "currentPattern", "history", "shift"]
+        values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), 0]
+                
+        last_patterns = self.select_items("*", ["userID", "day"], "day", [self.user_id, self.current_obj.day], 100)
+        logger.info(f"Last patterns fetched: {last_patterns}")
 
-        logger.info(f"Last pattern: {list(last_pattern)} Current pattern: {self.current_obj.current_pattern}")
-        if last_pattern is None or not cluster.evaluate_similarity(self.current_obj.current_pattern, last_pattern):
-            values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours)]
-            self.insert_items(values)
-            return 
         
-        cluster.join_patterns(last_pattern)
-        logger.info(f"Joined patterns: {cluster.data}")
+        if last_patterns:
+            patterns = []
+            for pattern in last_patterns:
+                row = pattern
+                if row[5] == 1:
+                    logger.info(f"Pattern is shifted, ending. {row[5]}")
+                    break
+                
+                logger.info(f"Adding pattern: {row[3]}")
+                patterns.extend(json.loads(row[3]))
+            
+            if not cluster.evaluate_similarity(self.current_obj.current_pattern, patterns):
+                logger.info(f"Current pattern {self.current_obj.current_pattern} is not similar to last patterns.")
+                values = [self.user_id, self.current_obj.day, json.dumps(self.current_obj.current_pattern), json.dumps(self.current_obj.daily_hours), cluster.shift]
+                self.insert_items(where_values, values)
+            
+            cluster.join_patterns(patterns)
 
-        cluster.get_k()
-        cluster.kmeans()
-        logger.info(f"Updated pattern: {cluster.clusters}")
+            cluster.get_k()
+            cluster.kmeans()
 
-        self.updated_obj = cluster.update_node()
+            self.updated_obj = cluster.update_node()
+            logger.info(f"Updated pattern: {self.updated_obj.current_pattern}")
+        else:
+            self.insert_items(where_values, values)
+            logger.info(f"No last patterns found, inserting {self.current_obj.current_pattern} into DB.")
     
     def update_db(self):
         if self.updated_obj:
             day = self.updated_obj.day
             current_pattern = json.dumps(self.updated_obj.current_pattern)
             history = json.dumps(self.updated_obj.daily_hours)
+            shift = self.updated_obj.shift
+
             where_values = ["userID", "day"]
-            self.update_items("currentPattern", where_values, [current_pattern, self.user_id, day])
+            values_to_update = ["currentPattern", "shift"]
+            values = [current_pattern, shift, self.user_id, day]
+            self.update_items(values_to_update, where_values, [current_pattern, self.user_id, day])
+            logger.info(f"Updated pattern in DB: {self.updated_obj.current_pattern}")
+        else:
+            logger.info("No updated pattern to save in DB.")
         
 class FetchNext(DBConnection):
     """
@@ -721,18 +531,18 @@ class FetchNext(DBConnection):
         close():
             Closes the database connection and logs the closure.
     """
-    def __init__(self, user_id, pattern_obj):
+    def __init__(self, user_id):
+        super().__init__("behaviors")
         self.user_id = user_id
-        self.pattern_obj = pattern_obj
+        self.day = datetime.now().strftime("%A")
         self.open()
-        self.create_table(self.user_id)
 
     def get_next_pattern(self):
-        if self.pattern_obj:
-            values = [self.user_id, self.pattern_obj.day]
-            where_values = ["userID", "day"]
-            last_pattern = self.select_items("currenPattern", where_values, "day", "day", values)
-            if last_pattern is None:
-                return None
-            else:
-                return json.loads(last_pattern[0])
+        values = [self.user_id, self.day]
+        where_values = ["userID", "day"]
+        last_pattern = self.select_items("currentPattern", where_values, "day", values, 1)
+        if last_pattern is None:
+            return None
+        else:
+            logger.info(f"Last pattern: {last_pattern}")
+            return json.loads(last_pattern[0][0])
