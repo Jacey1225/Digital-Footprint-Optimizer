@@ -1,6 +1,19 @@
+"""API Workflow:
+    1. Request setting user ID and username into the database
+    2. When need be, call the find_user() route to locate the existence of a user in the database(for log in purposes)
+    3. Start sending data to the system at the end of each day via track_behavior
+    4. After the new data has been processed and stored, call the pattern for the next given day via fetch_pattern
+    5. During the day, for each pattern highlighted from fetch_pattern, call fetch_transfers on all websites the user visits
+    6. When the user visits a website with an intense emissions rate, the function will enerate some alterantive websites that can then be sent to 
+    frontend for the user to choose from 
+
+    
+"""
+
 from src.track_behaviors import UpdateDB, FetchNext
 from src.weekly_overview import GetWeekDetails
 from src.use_DB import DBConnection
+from src.get_alternatives import GenerateAlternatives
 from flask import Flask, request, jsonify
 from flask.views import MethodView
 import os
@@ -80,7 +93,35 @@ def fetch_pattern():
         "message": "Tracker initialized successfully",
         "pattern": pattern}), 200
 
-@app.route('/weekly-overview', methods={"GET", "POST"})
+@app.route('/fetch-transfers', methods=["POST"])
+def fetch_transfers(tolerance=0.8):
+    data = request.get_json()
+    user_id = data.get("user_id")
+    website = data.get("url")
+    transfer = data.get("data_transfer")
+
+    evaluation = GenerateAlternatives(user_id, transfer)
+    try:
+        green_hosted =evaluation.is_green(website)
+        emissions = evaluation.calculate_total_emissions(green_hosted)
+
+        if emissions > tolerance:
+            alternatives = evaluation.fetch_matches()
+            if not alternatives:
+                alternatives = evaluation.fetch_ai_response()
+            
+            return jsonify({
+                "message": "Alternatives found",
+                "alternatives": alternatives,
+                "emissions": emissions,
+                "green_hosted": green_hosted
+            }), 200
+    except:
+        logger.error("Error calculating emissions or checking green hosting")
+        return jsonify({"message": "Error processing emissions"}), 500
+
+
+@app.route('/weekly-overview', methods=["POST"])
 def weekly_overview():
     data = request.get_json()
     user_id = data.get("user_id")
