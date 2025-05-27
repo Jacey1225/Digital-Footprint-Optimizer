@@ -16,103 +16,20 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-CONFIG = {
-    "host": os.environ.get('MYSQL_HOST', 'localhost'),
-    "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
-    "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
-    "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
-}
-
-class DBConnection:
-    def __init__(self,db_config=CONFIG):
-        self.db_config = db_config
-        try:
-            self.connection = mysql.connector.connect(**db_config)
-            if self.connection.is_connected():
-                self.cursor = self.connection.cursor()
-        except Error as e:
-            logging.error("Error while connecting to MySQL", e)
-            raise
-    
-    def open(self):
-        if not self.connection.is_connected():
-            try:
-                self.connection.connect(**self.db_config)
-                self.cursor = self.connection.cursor()
-            except Error as e:
-                logging.error("Error while connecting to MySQL", e)
-                raise
-    
-    def close(self):
-        if self.connection.is_connected():
-            self.cursor.close()
-            self.connection.close()
-            logging.info("MySQL connection is closed")
-        else:
-            logging.warning("MySQL connection is already closed")
-            raise
-    
-    def create_table(self):
-        try:
-            table_query = """
-            CREATE TABLE IF NOT EXISTS websites (
-                userID VARCHAR(255) PRIMARY KEY,
-                 root VARCHAR(255),
-                 footprint INT,
-                 suggestion1 VARCHAR(255),
-                 suggestion2 VARCHAR(255),
-                 suggestion3 VARCHAR(255));"""
-            self.cursor.execute(table_query)
-        except Error as e:
-            logging.error("Error while creating table", e)
-            raise
-    
-    def insert_items(self, user_id, values):
-        try:
-            insert_query = """
-            INSERT INTO websites (userID, root, footprint, suggestion1, suggestion2, suggestion3)
-            VALUES (%s, %s, %s, %s, %s, %s)"""
-            self.cursor.execute(insert_query, values)
-            self.connection.commit()
-        except Error as e:
-            logging.error("Error while inserting items", e)
-            raise
-    
-    def select_items(self, user_id, value_to_select=None):
-        try:
-            if value_to_select is None:
-                select_query = """
-                SELECT * FROM websites 
-                WHERE userID = %s
-                ORDER BY root DESC
-                LIMIT 7"""
-                self.cursor.execute(select_query, (user_id,))
-                result = self.cursor.fetchall()
-            else:
-                select_query = """
-                SELECT %s FROM webistes 
-                WHERE userID = %s
-                ORDER BY root DESC
-                LIMIT 7"""
-                self.cursor.execute(select_query, (value_to_select, user_id))
-                result = self.cursor.fetchone()
-            
-            if result:
-                return result
-        except Error as e:
-            logging.error("Error while selecting items", e)
-            raise
-
-
-
-class TrackWeekDetails(DBConnection):
-    def __init__(self, user_id):
-        self.user_id = user_id
+from src.use_DB import DBConnection
+class GetWeekDetails(DBConnection):
+    def __init__(self):
+        super().__init__("websites")
     
     def get_weekly_data(self):
             self.open()
-            self.create_table()
+
+            select_value = "*"
+            where_values = ["userID"]
+            order_value = "day"
+            values = [self.user_id]
+            fetchAmount = 7
+
             last_7_items = self.select_items(self.user_id)
             self.close()
 
@@ -121,6 +38,6 @@ class TrackWeekDetails(DBConnection):
             
     def insert_web_data(self, values):
         self.open()
-        self.create_table()
-        self.insert_items(self.user_id, values)
+        where_values = ["userID", "website", "transfer", "suggestion1", "suggestion2", "suggestion3"]
+        self.insert_items(where_values, values)
         self.close()
