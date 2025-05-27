@@ -13,8 +13,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.use_DB import DBConnection
 
 #API key used for Gemini services --> .env
-env = dotenv.load_dotenv() 
-API_KEY = env["API_KEY"]
+dotenv.load_dotenv() 
+API_KEY = os.getenv("API_KEY")
 logger = logging.getLogger(__name__)
 
 CONFIG = {
