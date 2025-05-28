@@ -16,9 +16,13 @@ CONFIG = {
 class DBConnection:
     def __init__(self, table, db_config=CONFIG):
         self.db_config = db_config
+        logger.info(f"Database configuration: {self.db_config}")
+
         self.table = table
         try:
             self.connection = mysql.connector.connect(**self.db_config)
+
+            logger.info(f"Connected to MySQL database: {self.db_config['database']} at {self.db_config['host']}:{self.db_config['port']} for table {self.table}")
             if self.connection.is_connected():
                 self.cursor = self.connection.cursor()
         except Error as e:
@@ -57,6 +61,24 @@ class DBConnection:
         except Error as e:
             logger.error("Error while connecting to MySQL", e)
 
+    def size(self):
+        """
+        Calculates the number of rows in the database table.
+        This method opens a connection to the database, executes a query to count
+        the total number of rows in the specified table, and then closes the connection.
+        Returns:
+            int: The number of rows in the table.
+        """
+
+        self.open()
+        count_query = f"""SELECT COUNT(*) FROM {self.table};"""
+        self.cursor.execute(count_query)
+
+        rows = self.cursor.fetchall()
+
+        self.close()
+        return len(rows)
+
     def find(self, where_values, values):
         """
         Executes a SQL query to find rows in the 'behaviors' table that match the specified conditions.
@@ -81,12 +103,13 @@ class DBConnection:
             count = self.cursor.fetchall()
             logger.info(f"Count query executed: {count_query} with result: {count}")
 
+            self.close()
             return count
         except Error as e:
             logger.error(f"Error counting rows: {e}")
         
         self.close()
-            
+
     def select_items(self, select_value, where_values, order_value, values, fetchAmount=1, desc=True):
         """
         Selects items from the 'behaviors' table in the database based on the provided parameters.
@@ -144,6 +167,7 @@ class DBConnection:
             self.cursor.execute(select_query, (values))
             rows = self.cursor.fetchall()
             
+            self.close()
             return rows
         except Error as e:
             logger.error(f"Error selecting items: {e}")

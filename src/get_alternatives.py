@@ -17,36 +17,30 @@ dotenv.load_dotenv()
 API_KEY = os.getenv("API_KEY")
 logger = logging.getLogger(__name__)
 
-CONFIG = {
-    "host": os.environ.get('MYSQL_HOST', 'localhost'),
-    "user": os.environ.get('MYSQL_USER', 'jaceysimpson'),
-    "password": os.environ.get('MYSQL_PASSWORD', 'WeLoveDoggies16!'),
-    "database": os.environ.get('MYSQL_DATABASE', 'userInfo'),
-    "port": int(os.environ.get('MYSQL_PORT', 3306))  # Ensure port is included and cast to int
-} 
-
 class GenerateAlternatives(DBConnection):
-    def __init_(self, website_url, data_transfer, db_config=CONFIG, key=API_KEY, user_id=None):
+    def __init__(self, user_id, website_url, data_transfer, key=API_KEY):
+        super().__init__("websites")
         self.url = website_url
-        self.client = genai.Client(key)
+
+        logger.info(f"GenAI Client API: {key}")
+        self.client = genai.Client(api_key=key)
         self.user_id = user_id
-        self.db_config = db_config
         self.data_transfer = data_transfer
 
         self.domains = [".com", ".org", ".net", ".io", ".co", ".be", ".uk", ".de", ".fr", ".jp", ".au", ".ca", ".it", ".es", ".ru", ".ch", ".nl", ".se", ".no", ".fi", ".dk"]
 
         try: 
-            filename = "src/green-urls.csv"
+            filename = "green-urls.csv"
             if not os.path.exists(filename):
                 raise FileNotFoundError(f"File {filename} not found.")
             self.green_df = pd.read_csv(filename)
         except FileNotFoundError as e:
             logger.info("Error while loading green URLs", e)
             raise
-        super().__init__("websites")
 
     def calculate_total_emissions(self, green_hosted=None, data_transfer=None) -> float:
-        """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estiamtes of intensities on different segments and summing them out
+        """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estimates 
+        of intensities on different segments and summing them out
         Args:
             data_transfer (float): data transfer in bytes from the website
             green_hosted (bool): highlights whether or not the hosting of a wbsite is eco-friendly or not. Defaults to False.
@@ -57,7 +51,10 @@ class GenerateAlternatives(DBConnection):
         #TODO - Calculate carbon footprint
         if data_transfer is None:
             data_transfer = self.data_transfer
-        data_transfer_gb = self.data_transfer / (1024 * 1024 * 1024) 
+        
+        logger.info(f"Calculating emissions for data transfer: {data_transfer} bytes")
+        data_transfer_gb = data_transfer / (1024 * 1024 * 1024) 
+        logger.info(f"Data transfer in GB: {data_transfer_gb} GB")
 
         # Global averages for energy intensity on different segments
         energy_intensity_datacenter = 0.055
@@ -66,18 +63,18 @@ class GenerateAlternatives(DBConnection):
 
         # globl average for crbon intensity bsed on whether or not the hosting is green/eco-frendly
         if green_hosted is None:
-            green_hosted = self.green_hosted
-        carbon_intensity = 50 if self.green_hosted else 494
+            green_hosted = self.is_green(self.url)
+        carbon_intensity = 50 if green_hosted else 494
 
         # calcualte total emissions for each segment based on the data transfer from the website
         emissions_datacenter = data_transfer_gb * energy_intensity_datacenter * carbon_intensity
-        emisions_network = data_transfer_gb * energy_intensity_network * carbon_intensity
+        emissions_network = data_transfer_gb * energy_intensity_network * carbon_intensity
         emissions_device = data_transfer_gb * energy_intensity_device * carbon_intensity
 
         # sum out all segments to get the total emissions gathered
-        total_emissions = emissions_datacenter + emisions_network + emissions_device
+        total_emissions = emissions_datacenter + emissions_network + emissions_device
 
-        logger.info(f"Total emissions calculated: {total_emissions} kg CO2e for {data_transfer_gb} GB of data transfer")
+        logger.info(f"Total emissions calculated: {total_emissions} g CO2e for {data_transfer_gb} GB of data transfer")
         return total_emissions
     
     def fetch_matches(self):
@@ -90,13 +87,12 @@ class GenerateAlternatives(DBConnection):
         select_value = "*"
         where_values = ["userID", "url"]
         values = [self.user_id, self.url]
-        self.open()
         rows = self.select_items(select_value, where_values, values, fetchAmount=1)
-        self.close()
 
         logger.info(f"Rows fetched for user {self.user_id} and URL {self.url}: {rows}")
         if not rows:
             self.fetch_ai_response()
+
     def store_website(self, suggestions):
         """Writes the website data into the SQL database for the respective user. This data will be used to quick-fetch suggestions for the user's current website
         --> reduces digital footprint/carbon emissions
@@ -106,9 +102,8 @@ class GenerateAlternatives(DBConnection):
             suggestions (list): list of alternative websites previously found to be more eco-friendly
             date (string): date the website was written to the database --> used to determine how old the data is
         """
-        data_transfer = self.calculate_total_emissions()
-        where_values = ["userID"]
-        values = [self.user_id, self.url, data_transfer, suggestions[0], suggestions[1], suggestions[2]]
+        where_values = ["userID", "website", "transfer", "suggestion1", "suggestion2", "suggestion3"]
+        values = [self.user_id, self.url, self.data_transfer, suggestions[0], suggestions[1], suggestions[2]]
         self.insert_items(where_values, values)
 
     def is_green(self, url):
@@ -125,8 +120,20 @@ class GenerateAlternatives(DBConnection):
             return True
         else:   
             return False
+    
+    def get_data_transfer(self, url):
+        response = requests.get(url)
+        if response.status_code == 200:
+            header_size = sum(len(k) + len(v) for k, v in response.headers.items())
+            content_size = 0
+            for chunk in response.iter_content(chunk_size=1024):
+                content_size += len(chunk)
+            
+            total_transfer = header_size + content_size
+            logger.info(f"Total data transfer for {url}: {total_transfer} bytes")
+            return total_transfer
 
-    def filter_suggestions(self, suggestions):
+    def filter_suggestions(self, tokens):
         """takes a list of AI generated urls that were suggested and filters them out based on their 
         overall carbon footprint. The function will need to pass through a JS function that will need to calculate the 
         total data transfer of the current suggestion so that we can accurately calculate. 
@@ -137,25 +144,25 @@ class GenerateAlternatives(DBConnection):
         Returns:
             list: Pruned list of suggestions based on the best results
         """
-        scores = []
-        dt_api = "htttp://localhost:3000/FUNCTION"
-        for suggestion in suggestions:
+        websites = []
+        for token in tokens:
             for domain in self.domains:
-                if domain in suggestion:
-                    url = suggestion[:suggestion.rfind(domain) + 4]
-
-                if url:
-                    green = self.is_green(url)
-                    params = {"url": url}
-                    response = requests.get(dt_api, params=params)
-                    data = response.json()
-                    data_transfer = data["transfer"]
-                    score = self.calculate_total_emissions(green, data_transfer)
-                    scores.append((suggestion, score))
+                if domain in token:
+                    websites.append(token)
         
-        sort_scores = [i for i in sorted(scores, key=lambda x: x[1])]
-        return sort_scores[:3]
-    
+        emissions_websites = []
+        for website in websites:
+            self.data_transfer = self.get_data_transfer(website)
+            if not self.is_green(website):
+                emissions = self.calculate_total_emissions(data_transfer=self.data_transfer, green_hosted=False)
+            else:
+                emissions = self.calculate_total_emissions(data_transfer=self.data_transfer, green_hosted=True)
+            
+            emissions_websites.append((website, emissions))
+        
+        emissions_websites.sort(key=lambda x: x[1])
+        filtered_suggestions = emissions_websites[:3]
+        return [website for website, emissions in filtered_suggestions]
 
     def fetch_ai_response(self):
         """This function is designed to generate a list of suggested websites that are similar to the user's current website ONLY IF they have not bee nfound in the current local database and passes the given conditions for search.
@@ -164,8 +171,10 @@ class GenerateAlternatives(DBConnection):
         Returns: 
             list: set of suggested websites that are similar to the user's current website
         """
+        if self.size() < 8:
+            return self.light_suggestion()
+        
         prompt = f"Generate an exact count of 8 alternative websites that are very similar in terms of content category to this provided website: {self.url}. Verify that the websites you generate match the overall message and content. Avoid any unnecessary text."
-        date = time.strftime("%Y-%m-%d")
         try:
             response = self.client.generate(prompt=prompt)
             tokens = response.split(" ")
@@ -176,7 +185,7 @@ class GenerateAlternatives(DBConnection):
                     if domain in token:
                         suggestions.append(token)
 
-            self.store_website(suggestions, date)
+            self.store_website(suggestions)
         except Exception as e:
             logger.info("Error while generating AI response", e)
 
@@ -186,13 +195,5 @@ class GenerateAlternatives(DBConnection):
         else:
             return None
     
-    def fetch_light_suggestions(self, warning):
-        suggestion = ""
-        if warning == "long":
-            suggestion = "Looks like you've been active for a while, try taking a break!"
-        elif warning == "video":
-            suggestion = "Looks like the video is really long, try watching a shorter one!"
-        elif warning == "message":
-            suggestion = "Looks like you've been chatting for quite some time, try taking a break!"
-
-        return suggestion
+    def light_suggestion(self):
+        return "Looks like you've been online for quite some time now! Try takinga break for a few minutes and come back later."
