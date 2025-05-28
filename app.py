@@ -100,16 +100,24 @@ def fetch_transfers(tolerance=0.8):
     website = data.get("url")
     transfer = data.get("data_transfer")
 
-    evaluation = GenerateAlternatives(user_id, transfer)
+    try:
+        evaluation = GenerateAlternatives(user_id, website, transfer)
+    except mysql.connector.Error as e:
+        logger.error(f"Database connection error: {e}")
+        return jsonify({"message": "Database connection error"}), 500
+    except Exception as e:
+        logger.error(f"Error initializing GenerateAlternatives: {e}")
+        return jsonify({"message": "Error initializing GenerateAlternatives"}), 500
+
     try:
         green_hosted =evaluation.is_green(website)
-        emissions = evaluation.calculate_total_emissions(green_hosted)
+        emissions = evaluation.calculate_total_emissions(green_hosted, transfer)
 
         if emissions > tolerance:
             alternatives = evaluation.fetch_matches()
             if not alternatives:
                 alternatives = evaluation.fetch_ai_response()
-            
+                
             return jsonify({
                 "message": "Alternatives found",
                 "alternatives": alternatives,

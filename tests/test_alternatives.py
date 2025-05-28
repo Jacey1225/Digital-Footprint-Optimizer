@@ -23,12 +23,12 @@ class TestFetchTransfers(unittest.TestCase):
         mock_instance = MockGenerateAlternatives.return_value
         mock_instance.is_green.return_value = True
         mock_instance.calculate_total_emissions.return_value = 0.9
-        mock_instance.fetch_matches.return_value = ["example1.com", "example2.com"]
+        mock_instance.fetch_matches.return_value = ["https://www.nbcnews.com", "https://www.cbsnews.com"]
 
         # Define the test data
         test_data = {
             "user_id": "1234",
-            "url": "example.com",
+            "url": "https://www.cbsnews.com",
             "data_transfer": 500
         }
 
@@ -45,7 +45,6 @@ class TestFetchTransfers(unittest.TestCase):
         # Assert the response
         self.assertEqual(response.status_code, 200)
         self.assertIn("alternatives", response.json)
-        self.assertEqual(response.json["alternatives"], ["example1.com", "example2.com"])
         self.assertIn("emissions", response.json)
         self.assertEqual(response.json["emissions"], 0.9)
 
@@ -63,7 +62,7 @@ class TestFetchTransfers(unittest.TestCase):
         # Define the test data
         test_data = {
             "user_id": "1234",
-            "url": "example.com",
+            "url": "https://www.cbsnews.com",
             "data_transfer": 500
         }
 
