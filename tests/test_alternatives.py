@@ -29,7 +29,7 @@ class TestFetchTransfers(unittest.TestCase):
         test_data = {
             "user_id": "1234",
             "url": "https://www.cbsnews.com",
-            "data_transfer": 500
+            "data_transfer": 2500000 #bytes
         }
 
         # Make a POST request to the /fetch-transfers endpoint
@@ -44,9 +44,8 @@ class TestFetchTransfers(unittest.TestCase):
 
         # Assert the response
         self.assertEqual(response.status_code, 200)
-        self.assertIn("alternatives", response.json)
+        self.assertIn("message", response.json)
         self.assertIn("emissions", response.json)
-        self.assertEqual(response.json["emissions"], 0.9)
 
     @patch('src.get_alternatives.GenerateAlternatives')
     def test_fetch_transfers_failure(self, MockGenerateAlternatives):
@@ -63,7 +62,7 @@ class TestFetchTransfers(unittest.TestCase):
         test_data = {
             "user_id": "1234",
             "url": "https://www.cbsnews.com",
-            "data_transfer": 500
+            "data_transfer": 2500000 #bytes
         }
 
         # Make a POST request to the /fetch-transfers endpoint

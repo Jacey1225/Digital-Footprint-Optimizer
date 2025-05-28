@@ -110,22 +110,30 @@ def fetch_transfers(tolerance=0.8):
         return jsonify({"message": "Error initializing GenerateAlternatives"}), 500
 
     try:
-        green_hosted =evaluation.is_green(website)
+        green_hosted = evaluation.is_green(website)
         emissions = evaluation.calculate_total_emissions(green_hosted, transfer)
 
         if emissions > tolerance:
             alternatives = evaluation.fetch_matches()
             if not alternatives:
                 alternatives = evaluation.fetch_ai_response()
-                
+
             return jsonify({
                 "message": "Alternatives found",
                 "alternatives": alternatives,
                 "emissions": emissions,
                 "green_hosted": green_hosted
+            }), 200    
+        else:
+            logger.info(f"Emissions for {website} are within tolerance: {emissions} < {tolerance}")   
+            return jsonify({
+                "message": "Emissions within tolerance",
+                "emissions": emissions,
+                "green_hosted": green_hosted
             }), 200
-    except:
-        logger.error("Error calculating emissions or checking green hosting")
+             
+    except Exception as e:
+        logger.error(f"Error calculating emissions or checking green hosting: {e}")
         return jsonify({"message": "Error processing emissions"}), 500
 
 
@@ -133,33 +141,10 @@ def fetch_transfers(tolerance=0.8):
 def weekly_overview():
     data = request.get_json()
     user_id = data.get("user_id")
-    weekly_data = GetWeekDetails()
+    weekly_data = GetWeekDetails(user_id)
     last_7_items = weekly_data.get_weekly_data()
 
     if last_7_items:
         return jsonify({"weekly_data": last_7_items}), 200
     else:
         return jsonify({"message": "No data found"}), 404
-
-@app.route('/insert-web-data', methods=["POST"])
-def insert_web_data():
-    data = request.get_json()
-    user_id = data.get("user_id")
-    website = data.get("root")
-    transfer = data.get("footprint")
-    suggestion1 = data.get("suggestion1")
-    suggestion2 = data.get("suggestion2")
-    suggestion3 = data.get("suggestion3")
-
-    web_data = GetWeekDetails()
-    where_values = ["userID", "website", "transfer", "suggestion1", "suggestion2", "suggestion3"]
-    values = [
-        user_id,
-        website,
-        transfer,
-        suggestion1,
-        suggestion2,
-        suggestion3
-    ]
-    web_data.insert_web_data(where_values, values)
-    return jsonify({"message": "Web data inserted successfully"}), 200
