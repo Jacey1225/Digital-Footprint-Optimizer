@@ -30,7 +30,7 @@ class GenerateAlternatives(DBConnection):
         self.domains = [".com", ".org", ".net", ".io", ".co", ".be", ".uk", ".de", ".fr", ".jp", ".au", ".ca", ".it", ".es", ".ru", ".ch", ".nl", ".se", ".no", ".fi", ".dk"]
 
         try: 
-            filename = "src/green-urls.csv"
+            filename = "green-urls.csv"
             if not os.path.exists(filename):
                 raise FileNotFoundError(f"File {filename} not found.")
             self.green_df = pd.read_csv(filename)
@@ -39,7 +39,8 @@ class GenerateAlternatives(DBConnection):
             raise
 
     def calculate_total_emissions(self, green_hosted=None, data_transfer=None) -> float:
-        """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estiamtes of intensities on different segments and summing them out
+        """Using the data transfer and green hosting metric from the users current webiste, return a total carbon footprint by taking global estimates 
+        of intensities on different segments and summing them out
         Args:
             data_transfer (float): data transfer in bytes from the website
             green_hosted (bool): highlights whether or not the hosting of a wbsite is eco-friendly or not. Defaults to False.
@@ -50,7 +51,10 @@ class GenerateAlternatives(DBConnection):
         #TODO - Calculate carbon footprint
         if data_transfer is None:
             data_transfer = self.data_transfer
-        data_transfer_gb = self.data_transfer / (1024 * 1024 * 1024) 
+        
+        logger.info(f"Calculating emissions for data transfer: {data_transfer} bytes")
+        data_transfer_gb = data_transfer / (1024 * 1024 * 1024) 
+        logger.info(f"Data transfer in GB: {data_transfer_gb} GB")
 
         # Global averages for energy intensity on different segments
         energy_intensity_datacenter = 0.055
@@ -59,18 +63,18 @@ class GenerateAlternatives(DBConnection):
 
         # globl average for crbon intensity bsed on whether or not the hosting is green/eco-frendly
         if green_hosted is None:
-            green_hosted = self.green_hosted
-        carbon_intensity = 50 if self.green_hosted else 494
+            green_hosted = self.is_green(self.url)
+        carbon_intensity = 50 if green_hosted else 494
 
         # calcualte total emissions for each segment based on the data transfer from the website
         emissions_datacenter = data_transfer_gb * energy_intensity_datacenter * carbon_intensity
-        emisions_network = data_transfer_gb * energy_intensity_network * carbon_intensity
+        emissions_network = data_transfer_gb * energy_intensity_network * carbon_intensity
         emissions_device = data_transfer_gb * energy_intensity_device * carbon_intensity
 
         # sum out all segments to get the total emissions gathered
-        total_emissions = emissions_datacenter + emisions_network + emissions_device
+        total_emissions = emissions_datacenter + emissions_network + emissions_device
 
-        logger.info(f"Total emissions calculated: {total_emissions} kg CO2e for {data_transfer_gb} GB of data transfer")
+        logger.info(f"Total emissions calculated: {total_emissions} g CO2e for {data_transfer_gb} GB of data transfer")
         return total_emissions
     
     def fetch_matches(self):
@@ -88,6 +92,7 @@ class GenerateAlternatives(DBConnection):
         logger.info(f"Rows fetched for user {self.user_id} and URL {self.url}: {rows}")
         if not rows:
             self.fetch_ai_response()
+
     def store_website(self, suggestions):
         """Writes the website data into the SQL database for the respective user. This data will be used to quick-fetch suggestions for the user's current website
         --> reduces digital footprint/carbon emissions
@@ -97,9 +102,8 @@ class GenerateAlternatives(DBConnection):
             suggestions (list): list of alternative websites previously found to be more eco-friendly
             date (string): date the website was written to the database --> used to determine how old the data is
         """
-        data_transfer = self.calculate_total_emissions()
-        where_values = ["userID"]
-        values = [self.user_id, self.url, data_transfer, suggestions[0], suggestions[1], suggestions[2]]
+        where_values = ["userID", "website", "transfer", "suggestion1", "suggestion2", "suggestion3"]
+        values = [self.user_id, self.url, self.data_transfer, suggestions[0], suggestions[1], suggestions[2]]
         self.insert_items(where_values, values)
 
     def is_green(self, url):
