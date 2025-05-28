@@ -6,7 +6,7 @@ import mysql.connector
 from mysql.connector import Error
 from sklearn.cluster import KMeans
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -534,15 +534,23 @@ class FetchNext(DBConnection):
     def __init__(self, user_id):
         super().__init__("behaviors")
         self.user_id = user_id
-        self.day = datetime.now().strftime("%A")
-        self.open()
+        self.day = (datetime.now() + timedelta(days=1)).strftime("%A")
 
     def get_next_pattern(self):
         values = [self.user_id, self.day]
         where_values = ["userID", "day"]
         last_pattern = self.select_items("currentPattern", where_values, "day", values, 1)
-        if last_pattern is None:
-            return None
-        else:
-            logger.info(f"Last pattern: {last_pattern}")
+
+        logger.info(f"First pattern search fetched: {last_pattern}")
+        if len(last_pattern) <= 0:
+            logger.info("No first pattern found, fetching the last known pattern.")
+
+            self.day = datetime.now().strftime("%A")
+            values = [self.user_id, self.day]
+            last_pattern = self.select_items("currentPattern", where_values, "day", values, 1)
+            logger.info(f"Next pattern fetched: {last_pattern}")
+
+        if last_pattern:   
+            logger.info(f"Last pattern: {last_pattern[0][0]}")
+            
             return json.loads(last_pattern[0][0])
