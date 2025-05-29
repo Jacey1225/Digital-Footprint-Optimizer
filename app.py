@@ -14,6 +14,7 @@ from src.track_behaviors import UpdateDB, FetchNext
 from src.weekly_overview import GetWeekDetails
 from src.use_DB import DBConnection
 from src.get_alternatives import GenerateAlternatives
+from src.user_integration import UserIntegration
 from flask import Flask, request, jsonify
 from flask.views import MethodView
 import os
@@ -29,31 +30,23 @@ GEMAPI = load_dotenv()
 @app.route('/set-user', methods=["POST"])
 def set_user():
     data = request.get_json()
-    user_id = data.get("user_id")
     username = data.get("username")
-    
-    db_functions = DBConnection("users")
+    user_integration = UserIntegration(username)
+    user_id = user_integration.generate_random_id()
 
-    where_values = ["userID", 'user']
-    values = [user_id, username]
-    db_functions.insert_items(where_values, values)
+    if not user_integration.validate_user():
+        user_integration.set_user()
+        return jsonify({"user_id": user_id}), 200
 
-    return jsonify({"user_id": user_id}), 200
-    
-@app.route('/find-user', methods=["POST"])
-def find_user():
+@app.route('/user-id', methods=["POST"])
+def user_id():
     data = request.get_json()
-    user_id = data.get("user_id")
-    user = data.get("username")
-    
-    db_functions = DBConnection("users")
-    select_value = "user"
-    where_values = ["userID"]
-    values = [user_id]
-    user_data = db_functions.select_items(select_value, where_values, values, False)
-    
-    if user_data is not None:
-        return jsonify({"user_data": user_data}), 200
+    username = data.get("username")
+    user_integration = UserIntegration(username)
+
+    user_id = user_integration.get_user()
+    if user_id:
+        return jsonify({"user_id": user_id}), 200
     else:
         return jsonify({"message": "User not found"}), 404
 
