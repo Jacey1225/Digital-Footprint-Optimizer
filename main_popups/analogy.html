@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="analogy.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+</head>
+<body>
+    <button class="show_ana">Show analogy</button>
+    <div class="analogy_box hide">
+        <div class="header">
+            <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+            <p id="title">CarByte</p>
+            <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>
+        </div>
+        <div class="content">
+            <span class="iconify car" data-icon="mdi:car"></span>
+            <div class="right_content">
+                <p class="main_notif ">You took five cars off the roads this week! </p>
+                <p class="try">For more information on your energy usage, visit your <a href="#">weekly energy report</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.show_ana').click(function(){
+                $('.analogy_box').removeClass("hide");
+                $('.analogy_box').addClass("show");
+            });
+            $('.cross').click(function(){
+                $('.analogy_box').addClass("hide");
+                $('.analogy_box').removeClass("show");
+            });
+        });
+    </script>
+</body>
+</html>

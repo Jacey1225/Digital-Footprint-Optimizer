@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="not_enough.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <button class="show_button">Show</button>
+    <div class="not_enough hide">
+        <div class="header">
+            <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+            <p id="title">CarByte</p>
+            <div class="right_icons">
+                <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>    
+            </div>
+        </div>
+        <div class="content">
+            <span class="iconify header_icon mark" data-icon="f7:exclamationmark" data-inline="false"></span>
+            <div class="right_content">
+                <p id="main">Not enough data collected!</p>
+                <p id="secondary">Check again at the end of the week.</p>    
+            </div>
+        </div>
+    </div>
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('.show_button').click(function(){
+                $('.not_enough').removeClass("hide");
+                $('.not_enough').addClass("show");
+            });
+            $('.cross').click(function(){
+                $('.not_enough').addClass("hide");
+                $('.not_enough').removeClass("show");
+            });
+        });
+    </script>
+</body>
+</html>

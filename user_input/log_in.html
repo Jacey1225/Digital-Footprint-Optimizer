@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+</head>
+<body>
+    <div class="login_box hide">
+        <div class="header">
+            <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+            <p id="title">CarByte</p>
+            <p id="login_text">Log In</p>
+            <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>
+        </div>
+        <div id="content">
+            <div class="left_content">
+                <span class="iconify profile" data-icon="iconamoon:profile-fill" data-inline="false"></span>
+                <p class="link">Don't have an account? <a href="#">Sign up</a></p>
+                <p class="link" id="forgot_password">Forgot your password? <a href="#">Reset</a></p>    
+            </div>
+            <form action="/set-user" method="POST">
+                <div class="right_content">
+                    <div class="input_group">
+                        <input type="text" name="username" required>
+                        <label for="username">Username</label>    
+                    </div>
+                    <div class="input_group">
+                        <input type="email" name="email" required>
+                        <label for="email">Email</label>    
+                    </div>
+                    <div class="input_group">
+                        <input type="password" name="password" required>
+                        <label for="password">Password</label>    
+                    </div>
+                    <button>Log In</button>    
+                </div>    
+            </form>
+        </div>
+    </div>
+    <button class="show_login">Show Log In</button>
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('.show_login').click(function(){
+                $('.login_box').removeClass("hide");
+                $('.login_box').addClass("show");
+            });
+            $('.cross').click(function(){
+                $('.login_box').addClass("hide");
+                $('.login_box').removeClass("show");
+            });
+        });
+    </script>
+</body>
+</html>

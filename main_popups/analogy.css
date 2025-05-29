@@ -1,0 +1,121 @@
+html {
+    font-size: 62.5%;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+}
+
+.show_ana {
+    width: 300px;
+    height: 100px;
+    margin-top: 500px;
+}
+
+.show_ana:hover {
+    cursor: pointer;
+}
+
+.analogy_box {
+    position: fixed;
+    top: 2rem;
+    right: -100%;
+    transition: right 0.8s ease;
+    width: 40vw;
+    max-width: 600px;
+    height: auto; 
+    /* originally 35vh */
+    background: linear-gradient(to right, #222D25, black);
+    border-radius: 1em;
+    font-size: 1em;
+    font-family: 'Poppins', sans-serif;
+    z-index: 2000;
+}
+
+.analogy_box.show {
+    right: 2rem;
+    animation: show_slide 0.8s ease forwards;
+}
+
+@keyframes show_slide {
+    0% {
+        transform: translateX(100%);
+    }
+    40%{
+        transform: translateX(-10%);
+    }
+    80% {
+        transform: translateX(2%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.analogy_box.hide {
+    right: -100%;
+}
+
+
+.header,
+.content {
+    color: white;
+}
+
+.content {
+    margin-top: -2.2rem;
+    display: flex;
+    .car {
+        font-size: 20em;
+        margin-top: 1rem;
+        margin-left: 1rem;
+    }    
+}
+
+.right_content {
+    width: 70%;
+    float: right;
+    margin-top: 2rem;
+    padding-left: 2rem;
+    margin-right: 2.5rem;
+}
+
+.header {
+    display: flex;
+    flex-direction: row;
+    padding-top: 0.5rem;
+    .header_icon {
+        font-size: 2.5em;
+    }
+    .leaf {
+        padding-top: 1rem;
+        padding-left: 2rem;
+    }
+    .cross {
+        padding-right: 2rem;
+        margin-top: 1rem;
+        margin-left: auto;
+    }
+    .cross:hover {
+        cursor: pointer;
+    }
+}
+
+.main_notif {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.try {
+    font-size: 1.5em;
+    a {
+        color: white;
+    }
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
+}
