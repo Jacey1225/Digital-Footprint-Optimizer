@@ -103,9 +103,12 @@ class DailyBehavior:
             int: Optimal number of clusters (k), with a minimum possible value of 1.
         """
 <<<<<<< HEAD
+<<<<<<< HEAD
         if len(self.activity_spikes) < 2:
             return 1  # If there are less than 2 spikes, only 1 cluster is possible.
 
+=======
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
         distortions = []
@@ -232,7 +235,11 @@ class TrackOverallBehavior():
         except Error as e:
             logging.error(f"Error connecting to MySQL: {e}")
 <<<<<<< HEAD
+<<<<<<< HEAD
             raise
+=======
+            
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
             
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
@@ -247,7 +254,11 @@ class TrackOverallBehavior():
         self.cursor.execute(table_query)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         count_query = f"SELECT COUNT (*) FROM `{self.user_id}`"
+=======
+        count_query = f"SELECT COUNT(*) FROM `{self.user_id}`"
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
         count_query = f"SELECT COUNT(*) FROM `{self.user_id}`"
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
@@ -264,6 +275,10 @@ class TrackOverallBehavior():
         values = (day, json.dumps(current_pattern), json.dumps(pattern_of_day))
         self.cursor.execute(item_query, values)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        self.connection.commit()
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
         self.connection.commit()
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
@@ -410,11 +425,17 @@ class TrackOverallBehavior():
             bool: True if the two patterns are similar, False otherwise
         """
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
         if not daily_pattern or not current_pattern:
             logging.warning("One of the patterns is empty. Returning False.")
             return False
         
+<<<<<<< HEAD
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
+=======
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
         for pattern1, pattern2 in zip(daily_pattern, current_pattern):
             diff1 = abs(pattern1[0] - pattern2[0])
@@ -458,23 +479,35 @@ class TrackOverallBehavior():
             pattern_query = f"""SELECT * FROM `{self.user_id}` 
             WHERE day = %s
 <<<<<<< HEAD
+<<<<<<< HEAD
             ORDER BY timestamp DESC
             LIMIT 1;""" 
         else: # If there are less than 7 data points, we can only track by the hour
             pattern_query = f"""SELECT * FROM `{self.user_id}`
             ORDER BY timestamp DESC
 =======
+=======
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
             ORDER BY day DESC
             LIMIT 1;""" 
         else: # If there are less than 7 data points, we can only track by the hour
             pattern_query = f"""SELECT * FROM `{self.user_id}`
             ORDER BY day DESC
+<<<<<<< HEAD
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
+=======
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
             LIMIT 1;"""
 
         self.cursor.execute(pattern_query, (self.week_day,))
         current_node = self.cursor.fetchone()
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        if not current_node:
+            logging.info(f"No previous pattern found for {self.user_id}.")
+            return "No previous pattern found."
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
         if not current_node:
             logging.info(f"No previous pattern found for {self.user_id}.")
@@ -490,7 +523,11 @@ class TrackOverallBehavior():
                     logging.info(f"Pattern cannot be matched, updating the current pattern")
                     update_query = f"""UPDATE `{self.user_id}` SET currentPattern = %s WHERE day = %s"""
 <<<<<<< HEAD
+<<<<<<< HEAD
                     values = [current_pattern, self.week_day]
+=======
+                    values = [json.dumps(current_pattern), self.week_day]
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
 =======
                     values = [json.dumps(current_pattern), self.week_day]
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
@@ -510,6 +547,7 @@ class TrackOverallBehavior():
     
             self.add_behavior(sorted_array, daily_pattern)
 <<<<<<< HEAD
+<<<<<<< HEAD
 
         logging.info(f"Behavior updated or {self.user_id} where the new pattern is {sorted_array}.")
     
@@ -520,6 +558,8 @@ class TrackOverallBehavior():
         else:
             next_pattern = f"SELECT currentPattern FROM `{self.user_id}` ORDER BY timestamp DESC LIMIT 1"
 =======
+=======
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
         if sorted_array:
             logging.info(f"Behavior updated or {self.user_id} where the new pattern is {sorted_array}.")
     
@@ -529,6 +569,9 @@ class TrackOverallBehavior():
             self.cursor.execute(next_pattern, (self.week_day, ))
         else:
             next_pattern = f"SELECT currentPattern FROM `{self.user_id}` ORDER BY day DESC LIMIT 1"
+<<<<<<< HEAD
+>>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
+=======
 >>>>>>> 23d19fd0939642b1ff2ac9e3b2ba50861e067456
             self.cursor.execute(next_pattern)
 
