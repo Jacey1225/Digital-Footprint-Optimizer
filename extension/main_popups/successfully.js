@@ -1,0 +1,10 @@
+$(document).ready(function(){
+    $('.show_success').click(function(){
+        $('.successful_login').removeClass("hide");
+        $('.successful_login').addClass("show");
+    });
+    $('.cross').click(function(){
+        $('.successful_login').addClass("hide");
+        $('.successful_login').removeClass("show");
+    });
+});

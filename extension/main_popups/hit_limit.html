@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="hit_limit.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+</head>
+<body>
+    <button class="show_hit">Show hit</button>
+    <div class="limit_box hide">
+        <div class="header">
+            <span class="iconify header_icon leaf" data-icon="mdi:leaf" data-inline="false"></span>
+            <p id="title">CarByte</p>
+            <span class="iconify header_icon cross" data-icon="basil:cross-solid" data-inline="false"></span>
+        </div>
+        <div class="content">
+            <span class="iconify exclaim" data-icon="tabler:pointer-exclamation" data-width="130" data-height="130"></span>
+            <div class="right_content">
+                <p class="main_notif text">Woops! You've hit your <br> maximum limit!</p>
+                <p class="try text">Try these alternative websites: </p>
+                <div class="links_suggestions">
+                    <ul>
+                        <li class="link text"><a>website link 1</a></li>
+                        <li class="link text"><a>website link 2</a></li>
+                        <li class="link text"><a>website link 3</a></li>
+                    </ul>    
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <script src="hit_limit.js"></script>
+</body>
+</html>

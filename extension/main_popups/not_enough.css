@@ -1,0 +1,109 @@
+html {
+    font-size: 62.5%;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+}
+
+.not_enough {
+    position: fixed;
+    top: 2rem;
+    right: -100%;
+    transition: right 0.8s ease;
+    width: 65vw;
+    max-width: 420px;
+    height: auto;
+    padding-bottom: 1rem;
+    background: linear-gradient(to right, #222D25, black);
+    border-radius: 1em;
+    font-size: 1em;
+    font-family: 'Poppins', sans-serif;
+    z-index: 2000;
+}
+
+.not_enough.show {
+    right: 2rem;
+    animation: show_slide 0.8s ease forwards;
+}
+
+@keyframes show_slide {
+    0% {
+        transform: translateX(100%);
+    }
+    40%{
+        transform: translateX(-10%);
+    }
+    80% {
+        transform: translateX(2%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.not_enough.hide {
+    right: -100%;
+}
+
+.header,
+.content {
+    color: white;
+}
+
+.content {
+    .mark {
+        font-size: 9em;
+        padding-left: 2rem;
+    }
+    .right_content {
+        float: right;
+        padding-right: 3rem;
+        margin-top: -1rem;
+        p {
+            text-align: center;
+        }
+        #main {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        #secondary {
+            font-size: 1.2em;
+        }
+    }
+}
+
+.text {
+    float: right;
+    width: 50%;
+}
+
+.header {
+    display: flex;
+    flex-direction: row;
+    padding-top: 0.1rem;
+    
+    .right_icons {
+        margin-left: auto;
+    }
+    .header_icon {
+        font-size: 2.5em;
+        padding-top: 1rem;
+    }
+    .leaf {
+        padding-left: 2rem;
+    }
+    .cross {
+        padding-right: 2rem;
+    }
+    .cross:hover {
+        cursor: pointer;
+    }
+}
+
+#title {
+    font-size: 1.5em;
+    padding-left: 0.5em;
+    margin-top: 1rem;
+}

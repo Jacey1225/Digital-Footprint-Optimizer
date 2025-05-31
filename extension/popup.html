@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CarByte Extension</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="iconify.min.js"></script>
+</head>
+<body>
+  <!-- Login Section -->
+  <div id="loginSection" style="display:block;">
+    <div class="login_box show">
+      <div class="header">
+        <span class="iconify header_icon leaf" id="closeLogin" data-icon="mdi:leaf"></span>
+        <p id="title">CarByte</p>
+        <span class="iconify header_icon cross" data-icon="basil:cross-solid"></span>
+      </div>
+      <div id="content">
+        <div class="left_content">
+          <span class="iconify profile" data-icon="iconamoon:profile-fill"></span>
+        </div>
+        <form id="openLogin">
+          <div class="right_content">
+            <div class="input_group">
+              <input type="text" name="username" id="loginUsername" required>
+              <label for="loginUsername">Username</label>    
+            </div>
+            <button type="submit" id="loginBtn">Log In</button>    
+          </div>    
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Section (initially hidden) -->
+  <div id="dashboardSection" style="display:none;">
+    <div class="dashboard_box">
+      <div class="header dashboard-header">
+        <span class="iconify header_icon leaf" data-icon="mdi:leaf"></span>
+        <p class="dashboard-title" id="title">CarByte</p>
+        <span class="iconify header_icon cross" id="closeDashboard" data-icon="basil:cross-solid"></span>
+      </div>
+      <div class="content">
+        <span class="iconify header_icon check" data-icon="material-symbols:check-box"></span>
+        <div class="right_content">
+          <p id="main">You have successfully logged in!</p>
+          <button id="start_tracking">Start Tracking!</button>
+          <button id="stop_tracking">Stop Tracking</button>
+          <p id="trackingStatus"></p>
+          <p id="logout"><a href="#">Log Out</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="suggestionsSection" style="display:none;">
+    <div class="suggestions_box">
+      <div class="header">
+        <span class="iconify header_icon leaf" data-icon="mdi:leaf"></span>
+        <p id="title">CarByte</p>
+        <span class="iconify header_icon cross" id="closeSuggestions" data-icon="basil:cross-solid"></span>
+      </div>
+      <div class="content">
+        <span class="iconify header_icon check" data-icon="ph:cursor-click"></span>
+        <div class="right_content">
+          <p id="main">Your activity is peaking!</p>
+          <p id="alternatives">Here are some alternatives to lessen your carbon footprint:</p>
+          <div>
+            <ul id="suggestionsList"></ul>
+          </div>
+          <button id="backToDashboard" style="margin-top:1em;">Back to Dashboard</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="open_minis.js"></script>
+  <script src="popup1.js"></script>
+  <script src="mock_test_pattern.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+$(document).ready(function(){
+    $('.show_button').click(function(){
+        $('.not_enough').removeClass("hide");
+        $('.not_enough').addClass("show");
+    });
+    $('.cross').click(function(){
+        $('.not_enough').addClass("hide");
+        $('.not_enough').removeClass("show");
+    });
+});
